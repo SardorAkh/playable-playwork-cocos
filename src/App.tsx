@@ -107,8 +107,8 @@ export default function App() {
     const [checkedAt, setCheckedAt] = useState<number | null>(null);
     const [tab, setTab] = useState<Tab>('params');
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
     const [dragging, setDragging] = useState(false);
-    const [forceExport, setForceExport] = useState(false);
 
     // Loading several builds in a row composes previews between renders, so the edits live in
     // refs and the state follows — reading them from a stale closure would lose values.
@@ -240,8 +240,8 @@ export default function App() {
     );
 
     /** Validates every network that is actually going to be exported, not just the visible one. */
-    const runValidation = useCallback(async () => {
-        if (sources.length === 0) return;
+    const runValidation = useCallback(async (): Promise<NetworkCheck[]> => {
+        if (sources.length === 0) return [];
         setBusy(true);
         await new Promise((resolve) => setTimeout(resolve, 0));
         try {
@@ -277,6 +277,7 @@ export default function App() {
             }
             setChecks(results);
             setCheckedAt(Date.now());
+            return results;
         } finally {
             setBusy(false);
         }
@@ -298,7 +299,6 @@ export default function App() {
                 setActiveId(id);
                 setChecks([]);
                 setCheckedAt(null);
-                setForceExport(false);
                 setTab(loaded.schema ? 'params' : 'export');
 
                 const nextValues = setValues((prev) => defaultsFrom(loaded, prev));
@@ -435,6 +435,13 @@ export default function App() {
 
     const runExport = useCallback(async () => {
         if (exportItems.length === 0) return;
+
+        // The file is always produced; a known problem is reported, never a reason to refuse.
+        const known = checks.reduce(
+            (total, check) => total + check.issues.filter((issue) => issue.severity === 'error').length,
+            0,
+        );
+        setNotice(known > 0 ? t('top.exportedWithErrors', { count: known }) : null);
         setBusy(true);
         await new Promise((resolve) => setTimeout(resolve, 0));
         try {
@@ -462,7 +469,7 @@ export default function App() {
         } finally {
             setBusy(false);
         }
-    }, [exportItems, exportSettings.baseName, overrides, pushEvent, sources, values]);
+    }, [checks, exportItems, exportSettings.baseName, overrides, pushEvent, sources, t, values]);
 
     useEffect(() => {
         if (!settings.autoReload || !stale || busy) return;
@@ -543,19 +550,10 @@ export default function App() {
                             }}
                         />
                     </label>
-                    {hasBlocking && (
-                        <label className="check check--tiny" title={t('top.ignoreErrorsHint')}>
-                            <input
-                                type="checkbox"
-                                checked={forceExport}
-                                onChange={(event) => setForceExport(event.target.checked)}
-                            />
-                            {t('top.ignoreErrors', { count: errorCount })}
-                        </label>
-                    )}
                     <button
-                        className="control control--primary"
-                        disabled={exportItems.length === 0 || busy || (hasBlocking && !forceExport)}
+                        className={hasBlocking ? 'control control--primary is-stale' : 'control control--primary'}
+                        disabled={exportItems.length === 0 || busy}
+                        title={hasBlocking ? t('top.exportWarnHint', { count: errorCount }) : undefined}
                         onClick={() => void runExport()}
                     >
                         {t('top.exportCount', { count: exportItems.length })}
@@ -596,6 +594,7 @@ export default function App() {
             )}
 
             {loadError && <div className="banner banner--error">{loadError}</div>}
+            {notice && <div className="banner banner--error">{notice}</div>}
 
             <main className="layout">
                 <DevicePreview

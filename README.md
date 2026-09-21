@@ -174,7 +174,18 @@ Value presets are stored in localStorage and can be exported/imported as JSON.
 ## Validation
 
 “Validate” checks every network that is actually going to be exported, against the build feeding it,
-and reports size and issues per network. Errors block the download (an explicit checkbox can override):
+and reports size and issues per network.
+
+**Download never refuses.** The file is always produced — validation informs, it does not gate. When
+a check has already found errors the button turns amber and says how many, and after the download a
+banner repeats it. Whether a creative goes to a network is your call, not the tool's.
+
+Findings shared by every network — they come from the game itself, not from one network — are stated
+once in a **Common to every network** block, so eight copies of the same redirect warning do not read
+as a wall of problems. Each network then lists only what is specific to it: size, a missing SDK
+symbol, a format mismatch.
+
+Errors:
 
 - over the network size limit (5 MB for all eight; under 10% headroom is a warning);
 - damaged tuning-block markers;

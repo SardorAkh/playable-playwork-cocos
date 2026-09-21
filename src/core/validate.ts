@@ -53,12 +53,18 @@ function typeIssue(param: TuningParam, value: unknown): ValidationIssue | null {
 }
 
 /**
- * Everything a static check can look at: the document itself plus the text files hiding in the
- * VFS as base64 (the game bundle lives there, so a redirect scan that skips it sees nothing).
+ * Text files hiding in the VFS as base64 — the game bundle lives there, so a redirect scan that
+ * skips it sees nothing. Decoding is cached per build: validating eight networks re-reads the same
+ * megabytes otherwise.
  */
-function scannableSources(build: LoadedBuild, html: string): string[] {
-    const sources = [html];
-    let budget = SCAN_BUDGET - html.length;
+const vfsTextCache = new WeakMap<LoadedBuild, string[]>();
+
+function vfsTexts(build: LoadedBuild): string[] {
+    const cached = vfsTextCache.get(build);
+    if (cached) return cached;
+
+    const texts: string[] = [];
+    let budget = SCAN_BUDGET;
     const decoder = new TextDecoder('utf-8');
     for (const [path, entry] of Object.entries(build.vfs ?? {})) {
         if (budget <= 0) break;
@@ -67,12 +73,17 @@ function scannableSources(build: LoadedBuild, html: string): string[] {
         try {
             const text = decoder.decode(base64ToBytes(entry.d));
             budget -= text.length;
-            sources.push(text);
+            texts.push(text);
         } catch {
             // A mislabelled binary — nothing to scan.
         }
     }
-    return sources;
+    vfsTextCache.set(build, texts);
+    return texts;
+}
+
+function scannableSources(build: LoadedBuild, html: string): string[] {
+    return [html, ...vfsTexts(build)];
 }
 
 function findIn(sources: string[], pattern: RegExp): boolean {
