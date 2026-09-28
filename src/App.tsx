@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeHtml, loadBuild } from './core/bundle';
-import { base64ToBytes, bytesToBase64 } from './core/base64';
+import { entryBytes, withBytes } from './core/vfs';
 import {
     DEFAULT_ORIENTATION_SUFFIX,
     ORIENTATIONS,
@@ -73,6 +73,13 @@ function defaultsFrom(build: LoadedBuild, current: TuningValues): TuningValues {
         if (param.default !== undefined && values[param.key] === undefined) values[param.key] = param.default;
     }
     return values;
+}
+
+/** image / audio / null — what kind of file a mime or extension stands for. */
+function mediaKind(hint: string): 'image' | 'audio' | null {
+    if (/^image\/|\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(hint)) return 'image';
+    if (/^audio\/|\.(mp3|ogg|wav|m4a|aac|opus)$/i.test(hint)) return 'audio';
+    return null;
 }
 
 function extensionOf(name: string): string {
@@ -245,9 +252,9 @@ export default function App() {
         setBusy(true);
         await new Promise((resolve) => setTimeout(resolve, 0));
         try {
-            const assetIssues = Object.values(swaps)
-                .map((swap) => swap.warning)
-                .filter((issue): issue is ValidationIssue => Boolean(issue));
+            // Swaps raise nothing on their own any more: the runtime fits images into their slot
+            // and detects audio by signature, so only size against the network limit still matters.
+            const assetIssues: ValidationIssue[] = [];
             const targets = exportSettings.networks.filter((target) => target.enabled && target.sourceId);
             const pending = targets.length > 0 ? targets : [];
             const results: NetworkCheck[] = [];
@@ -380,15 +387,20 @@ export default function App() {
         async (vfsPath: string, file: File) => {
             if (!build?.vfs) return;
             const entry = build.vfs[vfsPath];
+
+            // Any image may replace an image and any sound a sound — the runtime sorts out format
+            // and size. Crossing the two is the one thing it cannot rescue (contract §4).
+            const slot = mediaKind(entry.t);
+            const incoming = mediaKind(file.type) ?? mediaKind(extensionOf(file.name));
+            if (slot && incoming !== slot) {
+                setNotice(t('assets.wrongKind', { name: file.name, kind: t(`assets.kind-${slot}`) }));
+                return;
+            }
+
+            setNotice(null);
             const bytes = new Uint8Array(await file.arrayBuffer());
-            const from = extensionOf(vfsPath);
-            const to = extensionOf(file.name);
-            const warning: ValidationIssue | undefined =
-                from && to && from !== to
-                    ? { severity: 'warning', code: 'asset-format', params: { path: vfsPath, from, to } }
-                    : undefined;
-            setOverrides((prev) => ({ ...prev, [vfsPath]: { t: entry.t, d: bytesToBase64(bytes) } }));
-            setSwaps((prev) => ({ ...prev, [vfsPath]: { fileName: file.name, bytes: bytes.length, warning } }));
+            setOverrides((prev) => ({ ...prev, [vfsPath]: withBytes(entry, bytes) }));
+            setSwaps((prev) => ({ ...prev, [vfsPath]: { fileName: file.name, bytes: bytes.length } }));
             setStale(true);
             setCheckedAt(null);
             pushEvent('tuner', 'asset-swapped', {
@@ -397,7 +409,7 @@ export default function App() {
                 size: formatBytes(bytes.length),
             });
         },
-        [build, pushEvent],
+        [build, pushEvent, setNotice, setOverrides, setSwaps, t],
     );
 
     const downloadAsset = useCallback(
@@ -407,7 +419,7 @@ export default function App() {
             const dot = vfsPath.lastIndexOf('.');
             const suffix = dot === -1 ? '' : vfsPath.slice(dot);
             const stem = title.replace(/[\/:*?"<>|]+/g, '').trim() || 'asset';
-            const bytes = base64ToBytes(entry.d);
+            const bytes = entryBytes(entry);
             download(new Blob([bytes.slice()], { type: entry.t }), stem + suffix);
             pushEvent('tuner', 'asset-downloaded', { path: vfsPath, size: formatBytes(bytes.length) });
         },

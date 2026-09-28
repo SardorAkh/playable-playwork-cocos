@@ -963,6 +963,11 @@ select.control--wide {
     color: var(--muted);
 }
 
+.asset__slot {
+    font-size: 11px;
+    color: var(--muted);
+}
+
 .asset__warn {
     font-size: 11px;
     color: var(--warn);

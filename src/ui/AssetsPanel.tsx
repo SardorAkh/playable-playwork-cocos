@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
 import type { Translate } from '../i18n';
-import { base64ByteLength, base64ToBytes } from '../core/base64';
 import { PROBE_BYTES, formatDuration, probeMedia } from '../core/media';
 import type { MediaMeta } from '../core/media';
 import { formatBytes } from '../core/networks';
 import { isFlat, isSwappable, sectionsOf } from '../core/schema';
-import type { LoadedBuild, TuningParam, ValidationIssue, VfsEntry, VfsMap } from '../core/types';
+import { entryByteLength, entryDataUrl, entryHead } from '../core/vfs';
+import type { AssetFit, LoadedBuild, TuningParam, VfsEntry, VfsMap } from '../core/types';
 
 export interface AssetSwap {
     fileName: string;
     bytes: number;
-    warning?: ValidationIssue;
 }
 
 interface Props {
@@ -33,10 +32,8 @@ function extension(path: string): string {
 /** Only the first bytes are decoded — headers carry everything the panel shows. */
 function probeEntry(entry: VfsEntry | null): MediaMeta | null {
     if (!entry) return null;
-    const chars = Math.min(entry.d.length, Math.ceil((PROBE_BYTES * 4) / 3));
-    const aligned = entry.d.slice(0, chars - (chars % 4));
     try {
-        return probeMedia(base64ToBytes(aligned), base64ByteLength(entry.d), entry.t);
+        return probeMedia(entryHead(entry, PROBE_BYTES), entryByteLength(entry), entry.t);
     } catch {
         return null;
     }
@@ -50,7 +47,7 @@ function useMediaMeta(entry: VfsEntry | null): MediaMeta | null {
     useEffect(() => {
         setExtra(null);
         if (!entry || !probed) return;
-        const source = `data:${entry.t};base64,${entry.d}`;
+        const source = entryDataUrl(entry);
 
         if (entry.t.startsWith('image/') && !probed.width) {
             const image = new Image();
@@ -96,11 +93,16 @@ function describe(meta: MediaMeta | null, t: Translate): string[] {
     return parts;
 }
 
+function ratio(width: number, height: number): string {
+    return (width / height).toFixed(2);
+}
+
 function AssetRow({
     title,
     vfsPath,
     entry,
     original,
+    fit,
     swap,
     onSwap,
     onRevert,
@@ -111,6 +113,7 @@ function AssetRow({
     vfsPath: string;
     entry: VfsEntry;
     original?: VfsEntry;
+    fit?: AssetFit;
     swap?: AssetSwap;
     onSwap: (vfsPath: string, file: File) => void;
     onRevert: (vfsPath: string) => void;
@@ -119,13 +122,21 @@ function AssetRow({
 }) {
     const isImage = entry.t.startsWith('image/');
     const isAudio = entry.t.startsWith('audio/');
-    const source = `data:${entry.t};base64,${entry.d}`;
+    const source = entryDataUrl(entry);
     const meta = useMediaMeta(entry);
     const before = useMediaMeta(swap && original ? original : null);
 
-    // A replacement that changes the resolution is the usual reason a layout breaks.
-    const resized =
-        before?.width && meta?.width && (before.width !== meta.width || before.height !== meta.height)
+    /**
+     * With `fit` the runtime redraws the replacement into the slot, so any size is fine and only
+     * the aspect ratio is worth a word. Without it the bytes reach the engine as they are, and a
+     * different size is what produces "Rect width exceeds maximum margin" (contract §4).
+     */
+    const offRatio =
+        isImage && fit && meta?.width && meta.height
+            ? ratio(meta.width, meta.height) !== ratio(fit.width, fit.height)
+            : false;
+    const sizeMismatch =
+        isImage && !fit && before?.width && meta?.width && (before.width !== meta.width || before.height !== meta.height)
             ? `${before.width} × ${before.height}`
             : null;
 
@@ -141,13 +152,22 @@ function AssetRow({
                     {vfsPath}
                 </code>
                 <div className="asset__size">
-                    {[formatBytes(base64ByteLength(entry.d)), extension(vfsPath) || entry.t, ...describe(meta, t)].join(
+                    {[formatBytes(entryByteLength(entry)), extension(vfsPath) || entry.t, ...describe(meta, t)].join(
                         ' · ',
                     )}
                     {swap && <span className="pill pill--ok">{t('assets.swapped', { name: swap.fileName })}</span>}
                 </div>
-                {resized && <div className="asset__warn">{t('assets.was', { value: resized })}</div>}
-                {swap?.warning && <div className="asset__warn">{t(`issue.${swap.warning.code}`, swap.warning.params)}</div>}
+                {fit && (
+                    <div className="asset__slot">
+                        {t('assets.slot', {
+                            raw: `${fit.rawWidth} × ${fit.rawHeight}`,
+                            area: `${fit.width} × ${fit.height}`,
+                            ratio: ratio(fit.width, fit.height),
+                        })}
+                    </div>
+                )}
+                {offRatio && <div className="asset__warn">{t('assets.offRatio')}</div>}
+                {sizeMismatch && <div className="asset__warn">{t('assets.sizeMatters', { value: sizeMismatch })}</div>}
                 {isAudio && <audio controls src={source} />}
                 <div className="asset__actions">
                     <label className="control control--file">
@@ -232,11 +252,11 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
     const rowsFor = (params: TuningParam[]) =>
         params.map((param) => {
             if (!isSwappable(param, build.assets)) return <LockedAssetRow key={param.key} param={param} t={t} />;
-            const path = build.assets[param.key].file;
-            if (!vfs[path]) {
+            const ref = build.assets[param.key];
+            if (!vfs[ref.file]) {
                 return (
                     <div className="panel__empty" key={param.key}>
-                        {t('assets.missing', { title: param.label ?? param.key, path })}
+                        {t('assets.missing', { title: param.label ?? param.key, path: ref.file })}
                     </div>
                 );
             }
@@ -244,10 +264,11 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
                 <AssetRow
                     key={param.key}
                     title={param.label ?? param.key}
-                    vfsPath={path}
-                    entry={current(path)}
-                    original={vfs[path]}
-                    swap={swaps[path]}
+                    vfsPath={ref.file}
+                    entry={current(ref.file)}
+                    original={vfs[ref.file]}
+                    fit={ref.fit}
+                    swap={swaps[ref.file]}
                     onSwap={onSwap}
                     onRevert={onRevert}
                     onDownload={onDownload}

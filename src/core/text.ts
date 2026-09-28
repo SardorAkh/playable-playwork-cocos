@@ -13,13 +13,18 @@ export const MANIFEST_START = '<!--__PLAYABLE_MANIFEST_START__-->';
 export const MANIFEST_END = '<!--__PLAYABLE_MANIFEST_END__-->';
 export const FS_TERMINATOR = ';</script>';
 
-/** `</script` inside a JSON string literal must be escaped so the browser does not close the tag. */
+/**
+ * Two sequences inside a JSON string literal would end the surrounding <script> early:
+ * a closing script tag and a comment opener. Both escapes stay valid JSON, and the tag keeps
+ * its original case so the payload survives byte-for-byte.
+ */
 export function escapeForScript(json: string): string {
-    return json.replace(/<\/script/gi, '<\\/script');
+    return json.replace(/<\/(script)/gi, (_match, tag: string) => `<\\/${tag}`).replace(/<!--/g, '<\\u0021--');
 }
 
+/** JSON.parse resolves both escapes on its own; this is only for looking at raw payload text. */
 export function unescapeFromScript(json: string): string {
-    return json.replace(/<\\\/script/gi, '</script');
+    return json.replace(/<\\\/(script)/gi, (_match, tag: string) => `</${tag}`).replace(/<\\u0021--/g, '<!--');
 }
 
 function assignmentBounds(html: string, prefix: string): { from: number; to: number } | null {

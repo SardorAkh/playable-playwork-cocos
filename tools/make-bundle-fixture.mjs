@@ -24,7 +24,8 @@ const NETWORKS = [
     { id: 'tiktok', displayName: 'TikTok', shortName: 'TIKTOK', format: 'zip', cta: 'mraid.open(url)', mraid: true },
 ];
 
-const escape = (json) => json.replace(/<\/script/gi, '<\\/script');
+const escape = (json) =>
+    json.replace(/<\/(script)/gi, (_match, tag) => `<\\/${tag}`).replace(/<!--/g, '<\\u0021--');
 
 function headHtml(network) {
     const lines = [];

@@ -163,11 +163,24 @@ to the byte size. Formats no header probe here covers (AVIF, m4a duration) fall 
 browser decoder. **Download** saves the asset exactly as it currently sits inside the playable —
 named after the parameter label — so an artist can pull the original, rework it and swap it back.
 
-Asset replacement goes through `__TUNING_ASSETS__` → `__PLAYABLE_FS__`: only the `d` field (base64)
-is swapped, `t` is preserved. A changed extension raises a warning. An image/audio param that the
-schema declares but `__TUNING_ASSETS__` does not carry never made it into the build (atlas, compressed
-texture): the field is shown, replacement is blocked. If the build declares no image/audio parameters
-at all, every VFS media file is listed with a filter instead.
+Asset replacement goes through `__TUNING_ASSETS__` → `__PLAYABLE_FS__`: only `d` is swapped, `t` and
+`e` are preserved. An image/audio param the schema declares but `__TUNING_ASSETS__` does not carry
+never made it into the build (atlas, compressed texture): the field is shown, replacement blocked. If
+the build declares no image/audio parameters at all, every VFS media file is listed with a filter.
+
+**Size and format of a replacement do not matter** (contract §4). An image slot carries `fit` — the
+footprint the original occupied in the scene — and the runtime redraws whatever is dropped in into
+that area, so any picture of any size and format is accepted; the row shows the slot and says when the
+aspect ratio differs, which only means transparent margins, not breakage. A slot **without** `fit` is
+the exception: there the bytes reach the engine as they are, the size has to match the original, and
+the row says so (a mismatch is what produces `Error 3300`). Audio is the same — the runtime detects
+the format by signature. The one thing refused outright is crossing the two: a sound cannot replace a
+picture, or the other way round.
+
+VFS entries come in two encodings: base64 for binaries, and the file's own text when the entry says
+`e: "utf8"` (base64 would add a third to the weight of a couple of megabytes of engine JS). Sizes,
+probes, scans and downloads all go through `core/vfs.ts`, so neither case is decoded the wrong way.
+Payloads escape both `</script` (keeping the tag's case) and `<!--` as `<!--`.
 
 Value presets are stored in localStorage and can be exported/imported as JSON.
 
@@ -219,6 +232,7 @@ src/core/        build parsing and patching — no React
   previewShim.ts preview shim, postMessage channels, log clipping
   schema.ts      tuning categories: sections, ordering, search, swappable assets
   media.ts       header-only probes: image resolution, audio rate/channels/bitrate/duration
+  vfs.ts         VFS entries: base64 vs utf8 payloads, sizes, head slices, swaps
   rewrap.ts      manifest reading and the §8.3 bundle → network artifact procedure
   export.ts      network × orientation matrix, file naming, archive packing
 src/i18n.tsx     dictionaries and the translate hook

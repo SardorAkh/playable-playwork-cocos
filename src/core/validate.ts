@@ -1,4 +1,4 @@
-import { base64ToBytes } from './base64';
+import { entryText, isTextEntry } from './vfs';
 import {
     CTA_CALLS,
     META_REFRESH,
@@ -65,13 +65,13 @@ function vfsTexts(build: LoadedBuild): string[] {
 
     const texts: string[] = [];
     let budget = SCAN_BUDGET;
-    const decoder = new TextDecoder('utf-8');
     for (const [path, entry] of Object.entries(build.vfs ?? {})) {
         if (budget <= 0) break;
-        const looksTextual = SCANNABLE_MIME.test(entry.t) || /\.(js|json|txt|xml|css|html)$/i.test(path);
+        const looksTextual =
+            isTextEntry(entry) || SCANNABLE_MIME.test(entry.t) || /\.(js|json|txt|xml|css|html)$/i.test(path);
         if (!looksTextual) continue;
         try {
-            const text = decoder.decode(base64ToBytes(entry.d));
+            const text = entryText(entry);
             budget -= text.length;
             texts.push(text);
         } catch {

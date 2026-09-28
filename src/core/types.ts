@@ -31,6 +31,21 @@ export interface TuningSchema {
 export interface TuningAssetRef {
     file: string;
     mime: string;
+    /** Image slots only: the footprint the original occupied, baked into the scene at build time. */
+    fit?: AssetFit;
+}
+
+/**
+ * The runtime redraws a replacement onto a rawWidth x rawHeight canvas, fitting it into the
+ * x/y/width/height area. Its presence is what makes replacement size irrelevant (contract §4).
+ */
+export interface AssetFit {
+    rawWidth: number;
+    rawHeight: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
 export type TuningValues = Record<string, unknown>;
@@ -38,7 +53,9 @@ export type TuningAssets = Record<string, TuningAssetRef>;
 
 export interface VfsEntry {
     t: string;
+    /** base64 by default; the raw file text when `e` says utf8. */
     d: string;
+    e?: string;
 }
 
 export type VfsMap = Record<string, VfsEntry>;

@@ -108,17 +108,31 @@ const schema = {
 
 const values = { gameSpeed: 1, ctaText: 'PLAY NOW', bgColor: '#1b2a4a', difficulty: 'normal', showTutorial: true };
 
+// fit describes the footprint the sprite occupies in the scene: the runtime redraws any
+// replacement into it, which is why swap size no longer matters (contract §4).
 const assets = {
-    logoImage: { file: 'assets/main/native/0f/0f3bb384-demo-logo.png', mime: 'image/png' },
+    logoImage: {
+        file: 'assets/main/native/0f/0f3bb384-demo-logo.png',
+        mime: 'image/png',
+        fit: { rawWidth: 96, rawHeight: 96, x: 4, y: 4, width: 88, height: 88 },
+    },
     winSound: { file: 'assets/main/native/a1/a1c9d200-demo-win.wav', mime: 'audio/wav' },
 };
 
+// Text files ride as-is with e:'utf8' — base64 would add a third to their weight.
 const vfs = {
     [assets.logoImage.file]: { t: 'image/png', d: logo.toString('base64') },
     [assets.winSound.file]: { t: 'audio/wav', d: wav(0.4, 660).toString('base64') },
+    'src/settings.json': {
+        t: 'application/json',
+        d: JSON.stringify({ note: 'utf8 entry, no base64', marker: '<!-- not a comment -->' }),
+        e: 'utf8',
+    },
 };
 
-const escape = (json) => json.replace(/<\/script/gi, '<\\/script');
+// Both sequences would end the surrounding <script> early (contract §4).
+const escape = (json) =>
+    json.replace(/<\/(script)/gi, (_match, tag) => `<\\/${tag}`).replace(/<!--/g, '<\\u0021--');
 
 const game = `
 var tuning = window.__TUNING__ || {};

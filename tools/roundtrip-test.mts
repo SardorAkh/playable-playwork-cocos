@@ -9,6 +9,8 @@ import { NETWORKS } from '../src/core/networks.ts';
 import { validate } from '../src/core/validate.ts';
 import { isFlat, isSwappable, matchesQuery, matchesSection, sectionsOf } from '../src/core/schema.ts';
 import { formatDuration, probeMedia } from '../src/core/media.ts';
+import { entryByteLength, entryBytes, entryText, isTextEntry, withBytes } from '../src/core/vfs.ts';
+import { escapeForScript, unescapeFromScript } from '../src/core/text.ts';
 import {
     DEFAULT_ORIENTATION_SUFFIX,
     ORIENTATIONS,
@@ -39,7 +41,7 @@ console.log('parse');
 check('tuning block found', build.hasTuningBlock);
 check('schema has 7 params', build.schema?.params.length === 7, build.schema?.params.length);
 check('two swappable assets', Object.keys(build.assets).length === 2);
-check('vfs parsed', Object.keys(build.vfs ?? {}).length === 2);
+check('vfs parsed', Object.keys(build.vfs ?? {}).length === 3, Object.keys(build.vfs ?? {}));
 check('default value read', build.values.ctaText === 'PLAY NOW', build.values.ctaText);
 
 console.log('groups');
@@ -82,6 +84,28 @@ check('a category matches on its own text', matchesSection(sections[1], 'гей�
 
 check('a declared asset in the build is swappable', isSwappable(build.schema!.params.find((p) => p.key === 'logoImage')!, build.assets));
 check('an asset missing from the map is not swappable', !isSwappable({ key: 'ghostAsset', type: 'image' }, build.assets));
+
+console.log('vfs encodings and escaping');
+const textEntry = build.vfs!['src/settings.json'];
+check('a utf8 entry is flagged', isTextEntry(textEntry), textEntry?.e);
+check('its payload is the file text, not base64', entryText(textEntry).startsWith('{"note"'), entryText(textEntry).slice(0, 20));
+check('utf8 bytes are measured, not base64-decoded', entryByteLength(textEntry) === Buffer.byteLength(textEntry.d));
+check('a binary entry still decodes from base64', entryBytes(build.vfs![build.assets.logoImage.file])[1] === 0x50);
+check('a comment opener survives the round-trip', JSON.parse(entryText(textEntry)).marker === '<!-- not a comment -->');
+check('the raw payload carries no comment opener', !/window\.__PLAYABLE_FS__[^\n]*<!--/.test(build.html));
+check('a swap keeps t and e untouched', (() => {
+    const swapped = withBytes(textEntry, new TextEncoder().encode('{"x":1}'));
+    return swapped.t === textEntry.t && swapped.e === textEntry.e;
+})());
+
+const roundTrip = JSON.parse(unescapeFromScript(escapeForScript(JSON.stringify({ a: '</SCRIPT>', b: '<!--' }))));
+check('script tag keeps its case through the escape', roundTrip.a === '</SCRIPT>', roundTrip.a);
+check('comment opener round-trips', roundTrip.b === '<!--');
+check('JSON.parse alone resolves both escapes', JSON.parse(escapeForScript(JSON.stringify({ b: '<!--' }))).b === '<!--');
+
+console.log('asset fit');
+check('image slots carry their footprint', build.assets.logoImage.fit?.rawWidth === 96, build.assets.logoImage.fit);
+check('audio slots carry none', build.assets.winSound.fit === undefined);
 
 console.log('media probes');
 const logoBytes = base64ToBytes(build.vfs![build.assets.logoImage.file].d);
