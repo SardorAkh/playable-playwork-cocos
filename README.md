@@ -69,6 +69,8 @@ contain nothing but the generated demo game.
   Tab S8). Frame with notch/island and home bar; the iframe inside gets exactly the CSS pixels of
   the real screen and is fitted into the pane with `transform: scale`.
 - **Responsive** — any size: numeric fields, presets, and dragging the right/bottom edge or corner.
+- **Cutout** — the notch and home indicator are translucent, so the playable stays readable under
+  them, and the status bar has a switch to drop them entirely.
 - **Rotate** (button or `O`) flips orientation **without reloading** — the game gets a plain
   `resize`, like on a real device.
 - **Restart** (button or `R`) recomposes the HTML with the current parameter values and boots the

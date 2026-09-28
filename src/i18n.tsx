@@ -72,6 +72,8 @@ const en: Record<string, string> = {
     'stage.empty': 'Load a build to see the preview',
     'stage.stale': 'parameters changed — restart needed',
     'stage.autoReload': 'auto-restart',
+    'stage.cutout': 'cutout',
+    'stage.cutoutHint': 'Draw the notch and home indicator over the screen — translucent, so the playable stays visible',
     'stage.strictSandbox': 'strict sandbox',
     'stage.strictSandboxHint': 'allow-scripts only: full isolation, but localStorage inside the playable will throw',
 
@@ -258,6 +260,8 @@ const ru: Record<string, string> = {
     'stage.empty': 'Загрузите билд, чтобы увидеть превью',
     'stage.stale': 'параметры изменены — нужен перезапуск',
     'stage.autoReload': 'автоперезапуск',
+    'stage.cutout': 'вырез',
+    'stage.cutoutHint': 'Рисовать чёлку и home-индикатор поверх экрана — полупрозрачно, плеебл под ними видно',
     'stage.strictSandbox': 'строгая песочница',
     'stage.strictSandboxHint': 'Только allow-scripts: полная изоляция, но localStorage внутри плеебла упадёт',
 

@@ -406,8 +406,12 @@ select.control--wide {
     z-index: 2;
 }
 
+/* Translucent on purpose: an opaque cutout hides exactly the part of the playable you came to
+   look at. This shows where the hardware sits without taking the pixels away. */
 .notch {
-    background: #000;
+    background: rgba(0, 0, 0, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    backdrop-filter: saturate(0.6) brightness(0.7);
 }
 
 .notch--island.notch--portrait {

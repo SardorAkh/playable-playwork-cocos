@@ -12,6 +12,8 @@ export interface PreviewSettings {
     zoom: 'fit' | number;
     strictSandbox: boolean;
     autoReload: boolean;
+    /** Draw the cutout and home indicator over the screen at all. */
+    showCutout: boolean;
 }
 
 export const DEFAULT_PREVIEW: PreviewSettings = {
@@ -22,6 +24,7 @@ export const DEFAULT_PREVIEW: PreviewSettings = {
     zoom: 'fit',
     strictSandbox: false,
     autoReload: false,
+    showCutout: true,
 };
 
 interface Props {
@@ -291,10 +294,10 @@ export function DevicePreview(props: Props) {
                                 sandbox={sandbox}
                                 allow="autoplay; fullscreen"
                             />
-                            {isDevice && device.notch !== 'none' && (
+                            {isDevice && settings.showCutout && device.notch !== 'none' && (
                                 <div className={`notch notch--${device.notch} notch--${settings.orientation}`} />
                             )}
-                            {isDevice && device.homeIndicator && (
+                            {isDevice && settings.showCutout && device.homeIndicator && (
                                 <div className={`home-bar home-bar--${settings.orientation}`} />
                             )}
                         </div>
@@ -324,6 +327,14 @@ export function DevicePreview(props: Props) {
                         onChange={(event) => onChange({ autoReload: event.target.checked })}
                     />
                     {t('stage.autoReload')}
+                </label>
+                <label className="check check--tiny" title={t('stage.cutoutHint')}>
+                    <input
+                        type="checkbox"
+                        checked={settings.showCutout}
+                        onChange={(event) => onChange({ showCutout: event.target.checked })}
+                    />
+                    {t('stage.cutout')}
                 </label>
                 <label className="check check--tiny" title={t('stage.strictSandboxHint')}>
                     <input
