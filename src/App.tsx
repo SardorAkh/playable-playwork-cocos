@@ -76,9 +76,10 @@ function defaultsFrom(build: LoadedBuild, current: TuningValues): TuningValues {
 }
 
 /** image / audio / null — what kind of file a mime or extension stands for. */
-function mediaKind(hint: string): 'image' | 'audio' | null {
+function mediaKind(hint: string): 'image' | 'audio' | 'video' | null {
     if (/^image\/|\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(hint)) return 'image';
     if (/^audio\/|\.(mp3|ogg|wav|m4a|aac|opus)$/i.test(hint)) return 'audio';
+    if (/^video\/|\.(mp4|webm|mov|m4v|mkv)$/i.test(hint)) return 'video';
     return null;
 }
 

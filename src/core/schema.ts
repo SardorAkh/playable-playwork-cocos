@@ -1,6 +1,13 @@
-import type { TuningAssets, TuningGroup, TuningParam, TuningSchema } from './types';
+import type { TuningAssets, TuningGroup, TuningParam, TuningParamType, TuningSchema } from './types';
 
 export const GENERAL_GROUP = 'general';
+
+/** Param types whose value lives in the VFS rather than in __TUNING__. */
+export const ASSET_TYPES: TuningParamType[] = ['image', 'audio', 'video'];
+
+export function isAssetParam(param: TuningParam): boolean {
+    return ASSET_TYPES.includes(param.type);
+}
 
 const GROUP_ID = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
@@ -82,6 +89,6 @@ export function matchesQuery(param: TuningParam, section: Section, query: string
 
 /** Image/audio params missing from `__TUNING_ASSETS__` did not make it into this build (atlas, compressed texture). */
 export function isSwappable(param: TuningParam, assets: TuningAssets): boolean {
-    if (param.type !== 'image' && param.type !== 'audio') return true;
+    if (!isAssetParam(param)) return true;
     return Boolean(assets[param.key]);
 }

@@ -160,8 +160,8 @@ Categories are presentational: `window.__TUNING__` stays a flat object keyed by 
 param between categories never touches an already-built playable.
 
 Every asset row states what it actually is, read from the file header rather than by decoding it:
-resolution and format for images, duration, sample rate, channel count and bitrate for audio, next
-to the byte size. Formats no header probe here covers (AVIF, m4a duration) fall back to the
+resolution and format for images, duration, sample rate, channel count and bitrate for audio,
+resolution and duration for video, next to the byte size. Formats no header probe here covers (AVIF, m4a duration) fall back to the
 browser decoder. **Download** saves the asset exactly as it currently sits inside the playable —
 named after the parameter label — so an artist can pull the original, rework it and swap it back.
 
@@ -177,7 +177,13 @@ aspect ratio differs, which only means transparent margins, not breakage. A slot
 the exception: there the bytes reach the engine as they are, the size has to match the original, and
 the row says so (a mismatch is what produces `Error 3300`). Audio is the same — the runtime detects
 the format by signature. The one thing refused outright is crossing the two: a sound cannot replace a
-picture, or the other way round.
+picture, a picture a video, and so on — a slot only takes its own kind.
+
+**Video** rides along too: `video/*` entries show up in the VFS list with an inline player, and their
+resolution and duration come from the browser once metadata loads. A schema may also declare a
+named slot with `"type": "video"` — it renders like any other asset slot, in its category. One caveat the panel states: the
+contract promises runtime sniffing for audio only, so swapping an mp4 for a webm is allowed but
+flagged — check that it still plays.
 
 VFS entries come in two encodings: base64 for binaries, and the file's own text when the entry says
 `e: "utf8"` (base64 would add a third to the weight of a couple of megabytes of engine JS). Sizes,

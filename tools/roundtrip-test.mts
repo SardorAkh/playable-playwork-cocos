@@ -7,7 +7,7 @@ import { composeHtml, loadBuild, serialize } from '../src/core/bundle.ts';
 import { bytesToBase64, base64ToBytes } from '../src/core/base64.ts';
 import { NETWORKS } from '../src/core/networks.ts';
 import { validate } from '../src/core/validate.ts';
-import { isFlat, isSwappable, matchesQuery, matchesSection, sectionsOf } from '../src/core/schema.ts';
+import { isAssetParam, isFlat, isSwappable, matchesQuery, matchesSection, sectionsOf } from '../src/core/schema.ts';
 import { formatDuration, probeMedia } from '../src/core/media.ts';
 import { entryByteLength, entryBytes, entryText, isTextEntry, withBytes } from '../src/core/vfs.ts';
 import { escapeForScript, unescapeFromScript } from '../src/core/text.ts';
@@ -39,9 +39,9 @@ const build = await loadBuild(new File([source], 'demo.html', { type: 'text/html
 
 console.log('parse');
 check('tuning block found', build.hasTuningBlock);
-check('schema has 7 params', build.schema?.params.length === 7, build.schema?.params.length);
-check('two swappable assets', Object.keys(build.assets).length === 2);
-check('vfs parsed', Object.keys(build.vfs ?? {}).length === 3, Object.keys(build.vfs ?? {}));
+check('schema has 8 params', build.schema?.params.length === 8, build.schema?.params.length);
+check('three swappable assets', Object.keys(build.assets).length === 3, Object.keys(build.assets));
+check('vfs parsed', Object.keys(build.vfs ?? {}).length === 4, Object.keys(build.vfs ?? {}));
 check('default value read', build.values.ctaText === 'PLAY NOW', build.values.ctaText);
 
 console.log('groups');
@@ -55,10 +55,10 @@ check('section titles come from label', sections[0].title === 'Персонаж'
 check('description rides along', sections[0].description.startsWith('Всё, что'), sections[0].description);
 check('collapsed is a hint the tuner can honour', sections[2].collapsed === true);
 check('params land in their category', sections[1].params.map((p) => p.key).join(',') === 'gameSpeed,difficulty');
-check('a declared but empty category is kept', sections[3].params.length === 0);
+check('the endcard category now holds the video slot', sections[3].params.map((p) => p.key).join(',') === 'introClip', sections[3].params.map((p) => p.key));
 check('a param without a group falls into general', sections[4].params.map((p) => p.key).join(',') === 'showTutorial');
 check('assets sit in the same categories as params', sections[0].params.map((p) => p.type).join(',') === 'image,audio');
-check('every param is placed exactly once', sections.reduce((total, s) => total + s.params.length, 0) === 7);
+check('every param is placed exactly once', sections.reduce((total, s) => total + s.params.length, 0) === 8);
 
 const legacy = sectionsOf({ params: [{ key: 'a', type: 'string' }, { key: 'b', type: 'number' }] });
 check('a schema without groups collapses into one general section', legacy.length === 1 && legacy[0].id === 'general', legacy.map((s) => s.id));
@@ -83,6 +83,9 @@ check('search reaches the category description', matchesQuery(searchSection.para
 check('a category matches on its own text', matchesSection(sections[1], 'геймплей') && !matchesSection(sections[1], 'персонаж'));
 
 check('a declared asset in the build is swappable', isSwappable(build.schema!.params.find((p) => p.key === 'logoImage')!, build.assets));
+check('a video slot counts as an asset param', isAssetParam({ key: 'introClip', type: 'video' }));
+check('a video slot present in the map is swappable', isSwappable(build.schema!.params.find((p) => p.key === 'introClip')!, build.assets));
+
 check('an asset missing from the map is not swappable', !isSwappable({ key: 'ghostAsset', type: 'image' }, build.assets));
 
 console.log('vfs encodings and escaping');
@@ -130,6 +133,12 @@ check('gif dimensions are little-endian', probeMedia(gif, gif.length, 'image/gif
 const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, ...new Array(14).fill(0), 0xff, 0xc0, 0x00, 0x11, 0x08, 0x01, 0x2c, 0x02, 0x58]);
 const jpegMeta = probeMedia(jpeg, jpeg.length, 'image/jpeg');
 check('jpeg frame header gives width and height', jpegMeta.width === 600 && jpegMeta.height === 300, jpegMeta);
+
+const mp4 = base64ToBytes(build.vfs!['assets/main/native/c3/c3ab7712-demo-clip.mp4'].d);
+check('mp4 is recognised by its ftyp brand', probeMedia(mp4, mp4.length, 'video/mp4').format === 'MP4', probeMedia(mp4, mp4.length, 'video/mp4'));
+const webm = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0]);
+check('webm is recognised by its EBML magic', probeMedia(webm, webm.length, 'video/webm').format === 'WEBM');
+check('matroska keeps its own name', probeMedia(webm, webm.length, 'video/x-matroska').format === 'MKV');
 
 check('an unknown blob probes to nothing rather than throwing', Object.keys(probeMedia(new Uint8Array([1, 2, 3, 4]), 4, 'application/octet-stream')).length === 0);
 
@@ -266,7 +275,7 @@ const bundle = await loadBuild(new File([bundleFile], 'Demo_v1_TUNER.html', { ty
 
 check('bundle is detected', bundle.manifest !== null);
 check('manifest carries all eight recipes', bundle.manifest?.networks.length === 8, bundle.manifest?.networks.length);
-check('bundle still exposes the tuning schema', bundle.schema?.params.length === 7);
+check('bundle still exposes the tuning schema', bundle.schema?.params.length === 8, bundle.schema?.params.length);
 
 const bundleInfo: ExportSourceInfo = {
     id: 'bundle',

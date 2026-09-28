@@ -180,9 +180,22 @@ function ogg(bytes: Uint8Array): MediaMeta | null {
     return { format: 'OGG' };
 }
 
-function m4a(bytes: Uint8Array): MediaMeta | null {
+/**
+ * ISO base media: mp4, m4a, mov and friends. Duration and frame size live in atoms that can sit
+ * at the very end of the file, so only the brand is read here — the element fills in the rest.
+ */
+function isoMedia(bytes: Uint8Array): MediaMeta | null {
     if (ascii(bytes, 4, 4) !== 'ftyp') return null;
-    return { format: ascii(bytes, 8, 4).trim().toUpperCase() || 'MP4' };
+    const brand = ascii(bytes, 8, 4).trim().toUpperCase();
+    if (brand.startsWith('QT')) return { format: 'MOV' };
+    if (brand.startsWith('M4A')) return { format: 'M4A' };
+    return { format: brand.startsWith('M4V') ? 'M4V' : 'MP4' };
+}
+
+/** WebM and Matroska both start with the same EBML magic. */
+function matroska(bytes: Uint8Array, mime: string): MediaMeta | null {
+    if (bytes[0] !== 0x1a || bytes[1] !== 0x45 || bytes[2] !== 0xdf || bytes[3] !== 0xa3) return null;
+    return { format: mime.includes('matroska') ? 'MKV' : 'WEBM' };
 }
 
 /**
@@ -200,7 +213,8 @@ export function probeMedia(bytes: Uint8Array, totalBytes: number, mime = ''): Me
         () => wav(bytes, totalBytes),
         () => mp3(bytes, totalBytes),
         () => ogg(bytes),
-        () => m4a(bytes),
+        () => isoMedia(bytes),
+        () => matroska(bytes, mime),
     ];
     for (const probe of probes) {
         const meta = probe();

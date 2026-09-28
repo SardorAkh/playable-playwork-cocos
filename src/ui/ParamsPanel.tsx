@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
 import type { Translate } from '../i18n';
-import { isFlat, matchesQuery, matchesSection, sectionsOf } from '../core/schema';
+import { isAssetParam, isFlat, matchesQuery, matchesSection, sectionsOf } from '../core/schema';
 import type { Section } from '../core/schema';
 import type { TuningParam, TuningSchema, TuningValues } from '../core/types';
 
@@ -151,7 +151,7 @@ export function ParamsPanel({ schema, values, onChange, onReset, onApplyPreset }
         () =>
             sections.map((section) => ({
                 ...section,
-                params: section.params.filter((param) => param.type !== 'image' && param.type !== 'audio'),
+                params: section.params.filter((param) => !isAssetParam(param)),
             })),
         [sections],
     );

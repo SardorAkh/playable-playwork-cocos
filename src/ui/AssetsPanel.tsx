@@ -4,7 +4,7 @@ import type { Translate } from '../i18n';
 import { PROBE_BYTES, formatDuration, probeMedia } from '../core/media';
 import type { MediaMeta } from '../core/media';
 import { formatBytes } from '../core/networks';
-import { isFlat, isSwappable, sectionsOf } from '../core/schema';
+import { isAssetParam, isFlat, isSwappable, sectionsOf } from '../core/schema';
 import { entryByteLength, entryDataUrl, entryHead } from '../core/vfs';
 import type { AssetFit, LoadedBuild, TuningParam, VfsEntry, VfsMap } from '../core/types';
 
@@ -56,6 +56,19 @@ function useMediaMeta(entry: VfsEntry | null): MediaMeta | null {
             return () => {
                 image.onload = null;
             };
+        }
+        if (entry.t.startsWith('video/')) {
+            const video = document.createElement('video');
+            const onMeta = () =>
+                setExtra({
+                    width: video.videoWidth,
+                    height: video.videoHeight,
+                    durationMs: Number.isFinite(video.duration) ? Math.round(video.duration * 1000) : undefined,
+                });
+            video.addEventListener('loadedmetadata', onMeta);
+            video.preload = 'metadata';
+            video.src = source;
+            return () => video.removeEventListener('loadedmetadata', onMeta);
         }
         if (entry.t.startsWith('audio/') && !probed.durationMs) {
             const audio = new Audio();
@@ -122,6 +135,7 @@ function AssetRow({
 }) {
     const isImage = entry.t.startsWith('image/');
     const isAudio = entry.t.startsWith('audio/');
+    const isVideo = entry.t.startsWith('video/');
     const source = entryDataUrl(entry);
     const meta = useMediaMeta(entry);
     const before = useMediaMeta(swap && original ? original : null);
@@ -135,6 +149,12 @@ function AssetRow({
         isImage && fit && meta?.width && meta.height
             ? ratio(meta.width, meta.height) !== ratio(fit.width, fit.height)
             : false;
+    // Audio gets sniffed by signature at runtime (contract §4); video has no such promise, so a
+    // different container is worth flagging even though the swap itself is allowed.
+    const containerChanged = isVideo && before?.format && meta?.format && before.format !== meta.format
+        ? before.format
+        : null;
+
     const sizeMismatch =
         isImage && !fit && before?.width && meta?.width && (before.width !== meta.width || before.height !== meta.height)
             ? `${before.width} × ${before.height}`
@@ -144,7 +164,8 @@ function AssetRow({
         <div className="asset">
             <div className="asset__preview">
                 {isImage && <img src={source} alt={title} />}
-                {!isImage && <span className="asset__mime">{entry.t || '?'}</span>}
+                {isVideo && <video src={source} muted playsInline preload="metadata" />}
+                {!isImage && !isVideo && <span className="asset__mime">{entry.t || '?'}</span>}
             </div>
             <div className="asset__meta">
                 <div className="asset__title">{title}</div>
@@ -168,13 +189,17 @@ function AssetRow({
                 )}
                 {offRatio && <div className="asset__warn">{t('assets.offRatio')}</div>}
                 {sizeMismatch && <div className="asset__warn">{t('assets.sizeMatters', { value: sizeMismatch })}</div>}
+                {containerChanged && (
+                    <div className="asset__warn">{t('assets.videoContainer', { from: containerChanged })}</div>
+                )}
                 {isAudio && <audio controls src={source} />}
+                {isVideo && <video className="asset__video" controls muted playsInline preload="metadata" src={source} />}
                 <div className="asset__actions">
                     <label className="control control--file">
                         {t('assets.replace')}
                         <input
                             type="file"
-                            accept={isImage ? 'image/*' : isAudio ? 'audio/*' : undefined}
+                            accept={isImage ? 'image/*' : isAudio ? 'audio/*' : isVideo ? 'video/*' : undefined}
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 if (file) onSwap(vfsPath, file);
@@ -226,7 +251,7 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
         () =>
             sectionsOf(build.schema).map((section) => ({
                 ...section,
-                params: section.params.filter((param) => param.type === 'image' || param.type === 'audio'),
+                params: section.params.filter(isAssetParam),
             })),
         [build.schema],
     );
@@ -241,7 +266,7 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
         const needle = filter.trim().toLowerCase();
         return Object.keys(vfs)
             .filter((path) => !declaredPaths.has(path))
-            .filter((path) => vfs[path].t.startsWith('image/') || vfs[path].t.startsWith('audio/'))
+            .filter((path) => /^(image|audio|video)\//.test(vfs[path].t))
             .filter((path) => (needle ? path.toLowerCase().includes(needle) : true));
     }, [vfs, sections, build.assets, filter]);
 

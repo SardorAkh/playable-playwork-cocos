@@ -77,6 +77,15 @@ function wav(seconds, frequency) {
     return Buffer.concat([header, data]);
 }
 
+function tinyMp4() {
+    const box = (type, payload) => {
+        const size = Buffer.alloc(4);
+        size.writeUInt32BE(8 + payload.length);
+        return Buffer.concat([size, Buffer.from(type, 'ascii'), payload]);
+    };
+    const ftyp = box('ftyp', Buffer.concat([Buffer.from('isom'), Buffer.alloc(4), Buffer.from('isomiso2mp41')]));
+    return Buffer.concat([ftyp, box('free', Buffer.alloc(8))]);
+}
 const logo = png(96, (x, y) => {
     const dx = x - 48;
     const dy = y - 48;
@@ -103,6 +112,7 @@ const schema = {
         { key: 'showTutorial', type: 'boolean', label: 'Показывать туториал', group: 'general', default: true },
         { key: 'logoImage', type: 'image', label: 'Логотип', group: 'character', asset: 'db://assets/logo.png' },
         { key: 'winSound', type: 'audio', label: 'Звук победы', group: 'character', asset: 'db://assets/win.wav' },
+        { key: 'introClip', type: 'video', label: 'Интро-ролик', group: 'endcard', asset: 'db://assets/intro.mp4' },
     ],
 };
 
@@ -117,12 +127,15 @@ const assets = {
         fit: { rawWidth: 96, rawHeight: 96, x: 4, y: 4, width: 88, height: 88 },
     },
     winSound: { file: 'assets/main/native/a1/a1c9d200-demo-win.wav', mime: 'audio/wav' },
+    introClip: { file: 'assets/main/native/c3/c3ab7712-demo-clip.mp4', mime: 'video/mp4' },
 };
 
 // Text files ride as-is with e:'utf8' — base64 would add a third to their weight.
 const vfs = {
     [assets.logoImage.file]: { t: 'image/png', d: logo.toString('base64') },
     [assets.winSound.file]: { t: 'audio/wav', d: wav(0.4, 660).toString('base64') },
+    // A tiny mp4 so the panel has a video slot to show; the bytes are just a valid ftyp header.
+    [assets.introClip.file]: { t: 'video/mp4', d: tinyMp4().toString('base64') },
     'src/settings.json': {
         t: 'application/json',
         d: JSON.stringify({ note: 'utf8 entry, no base64', marker: '<!-- not a comment -->' }),

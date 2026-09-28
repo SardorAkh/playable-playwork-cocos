@@ -11,6 +11,7 @@ import {
 } from './networks';
 import type { NetworkProfile } from './networks';
 import { formatBytes } from './networks';
+import { isAssetParam } from './schema';
 import { collectUrls, hasIntactMarkers, tuningBlock } from './text';
 import type { LoadedBuild, TuningParam, TuningValues, ValidationIssue } from './types';
 
@@ -153,7 +154,7 @@ export function validate(input: ValidateInput): ValidationIssue[] {
     }
 
     for (const param of build.schema?.params ?? []) {
-        if (param.type === 'image' || param.type === 'audio') continue;
+        if (isAssetParam(param)) continue;
         const issue = typeIssue(param, values[param.key]);
         if (issue) issues.push(issue);
     }
