@@ -1210,3 +1210,37 @@ select.control--wide {
     font-size: 12px;
     opacity: 0.75;
 }
+
+/* A category note long enough to be instructions rather than a hint. */
+.section__note--long {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.section__note-head {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.section__note-text {
+    margin: 0;
+    max-height: 7.5em;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    /* Fades out rather than cutting, so it reads as folded and not as broken. */
+    mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+}
+
+.section__note-text.is-open {
+    max-height: none;
+    overflow: visible;
+    mask-image: none;
+    -webkit-mask-image: none;
+}

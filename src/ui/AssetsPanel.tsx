@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
+import { SectionNote } from './SectionNote';
 import type { Translate } from '../i18n';
 import { PROBE_BYTES, formatDuration, probeMedia } from '../core/media';
 import type { MediaMeta } from '../core/media';
@@ -318,7 +319,7 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
                                 <span className="section__count">{section.params.length}</span>
                             </div>
                             <div className="section__body">
-                                {section.description && <div className="section__note">{section.description}</div>}
+                                {section.description && <SectionNote text={section.description} t={t} />}
                                 {rowsFor(section.params)}
                             </div>
                         </section>

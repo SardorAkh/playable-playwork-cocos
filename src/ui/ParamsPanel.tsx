@@ -3,6 +3,7 @@ import { useI18n } from '../i18n';
 import type { Translate } from '../i18n';
 import { isAssetParam, isFlat, matchesQuery, matchesSection, sectionsOf } from '../core/schema';
 import type { Section } from '../core/schema';
+import { SectionNote } from './SectionNote';
 import type { TuningParam, TuningSchema, TuningValues, ValueCheck } from '../core/types';
 
 interface Props {
@@ -372,7 +373,7 @@ export function ParamsPanel({
                         </button>
                         {!isClosed && (
                             <div className="section__body">
-                                {section.description && <div className="section__note">{section.description}</div>}
+                                {section.description && <SectionNote text={section.description} t={t} />}
                                 {section.params.length > 0 && rows}
                                 {assetsOnly && (
                                     <div className="section__note">{t('params.assetsOnly', { count: total })}</div>
