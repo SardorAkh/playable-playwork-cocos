@@ -200,7 +200,11 @@ export default function App() {
                     pushEvent('patched', 'patched', { keys: String(payload.keys ?? '') });
                     break;
                 case 'checked-value': {
-                    const key = String(payload.key ?? '');
+                    // Read off `data.payload` rather than `payload`: this one
+                    // carries booleans and lists, and `payload` is narrowed to
+                    // the text the other events send.
+                    const answer = (data.payload ?? {}) as Record<string, unknown>;
+                    const key = String(answer.key ?? '');
                     if (!key) break;
                     const asText = (list: unknown) =>
                         Array.isArray(list) ? list.map((line) => String(line)) : [];
@@ -208,11 +212,11 @@ export default function App() {
                         ...prev,
                         [key]: {
                             key,
-                            supported: payload.supported === true,
-                            ok: payload.ok === true,
-                            errors: asText(payload.errors),
-                            warnings: asText(payload.warnings),
-                            notes: asText(payload.notes),
+                            supported: answer.supported === true,
+                            ok: answer.ok === true,
+                            errors: asText(answer.errors),
+                            warnings: asText(answer.warnings),
+                            notes: asText(answer.notes),
                         },
                     }));
                     break;
