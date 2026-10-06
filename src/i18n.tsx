@@ -93,6 +93,10 @@ const en: Record<string, string> = {
     'params.search': 'Search parameters…',
     'params.emptyGroup': 'no parameters in this category — most likely a typo in a param group',
     'params.assetsOnly': '{count} asset(s) in this category — on the Assets tab',
+    'params.check': 'Check',
+    'params.checkOk': 'This value works.',
+    'params.checkBad': 'This value will not be used.',
+    'params.checkUnsupported': 'This build does not check its own values, so the value goes in unexamined.',
 
     'assets.noVfs': 'This build has no __PLAYABLE_FS__ — nothing to replace.',
     'assets.noDeclared': 'The schema declares no image/audio parameters. Below are all VFS media files: they can be swapped too, but matching a file to its place in the game is on you.',
@@ -283,6 +287,10 @@ const ru: Record<string, string> = {
     'params.search': 'Поиск по параметрам…',
     'params.emptyGroup': 'в категории нет параметров — скорее всего опечатка в group у параметра',
     'params.assetsOnly': 'в этой категории {count} ассет(а) — они на вкладке «Ассеты»',
+    'params.check': 'Проверить',
+    'params.checkOk': 'Значение рабочее.',
+    'params.checkBad': 'Значение не будет использовано.',
+    'params.checkUnsupported': 'Эта сборка не проверяет свои значения — оно уйдёт как есть.',
 
     'assets.noVfs': 'В билде нет __PLAYABLE_FS__ — заменять нечего.',
     'assets.noDeclared': 'В схеме нет параметров image/audio. Ниже — все медиафайлы VFS: их тоже можно подменить, но соответствие имени и места в игре придётся определять самому.',

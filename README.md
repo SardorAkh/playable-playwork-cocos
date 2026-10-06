@@ -17,6 +17,23 @@ Two kinds of input are accepted:
 - **a tuner bundle** (`tuner/…_TUNER.html`, contract §8) — network-neutral, carries a wrap recipe
   for every network, so all eight artifacts come out of this single file.
 
+## Asking a build to check its own values
+
+Some parameters have rules only the game knows — a level description, a config
+blob. A build may define
+
+```js
+window.__tuningCheck__ = (key, value) => ({ ok, errors, warnings, notes });
+```
+
+and any long-form string parameter then gets a **Check** button that asks it,
+through the same message channel as live patching. A build that defines
+nothing says so, and the field makes clear the value goes in unexamined.
+
+Long-form is read off the schema: a `string` parameter whose default runs to
+several lines, or past 60 characters, is edited in a textarea rather than a
+one-line field.
+
 ## Running
 
 ```bash

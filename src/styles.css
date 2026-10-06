@@ -1164,3 +1164,49 @@ select.control--wide {
     font-size: 16px;
     pointer-events: none;
 }
+
+/* Long-form string parameters: a level description, a block of copy. */
+.control--area {
+    min-height: 180px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+}
+
+.btn--tiny {
+    margin-left: auto;
+    padding: 2px 10px;
+    font-size: 11px;
+}
+
+/* What the build said about a value. */
+.field__check {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.field__check--ok { border-color: color-mix(in srgb, var(--ok, #3aa65a) 55%, transparent); }
+.field__check--bad { border-color: color-mix(in srgb, var(--bad, #d04a3a) 55%, transparent); }
+
+.field__check ul {
+    margin: 6px 0 0;
+    padding-left: 16px;
+}
+
+.field__check-error { color: var(--bad, #d04a3a); }
+.field__check-warn { color: var(--warn, #b8860b); }
+.field__check-note { opacity: 0.8; }
+
+.field__note {
+    margin: 8px 0 0;
+    font-size: 12px;
+    opacity: 0.75;
+}

@@ -204,6 +204,32 @@ const SHIM_SOURCE = `
         send('patched', { keys: Object.keys(values).join(', ') });
     });
 
+    // A build may offer to check a value before it is used -- a level
+    // description, a config blob, anything whose rules only the game knows.
+    // It is optional: a build that defines nothing simply answers "no".
+    window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || data.channel !== TUNING_CHANNEL || data.type !== 'check') return;
+
+        var reply = { id: data.id, key: data.key, supported: false, ok: false, errors: [], warnings: [], notes: [] };
+        try {
+            var check = window.__tuningCheck__;
+            if (typeof check === 'function') {
+                reply.supported = true;
+                var out = check(data.key, data.value) || {};
+                reply.ok = out.ok === true;
+                reply.errors = out.errors || [];
+                reply.warnings = out.warnings || [];
+                reply.notes = out.notes || [];
+            }
+        } catch (error) {
+            reply.supported = true;
+            reply.ok = false;
+            reply.errors = [String((error && error.message) || error)];
+        }
+        send('checked-value', reply);
+    });
+
     window.addEventListener('load', function () { send('loaded', { at: Date.now() }); });
     send('ready', { at: Date.now() });
 })();

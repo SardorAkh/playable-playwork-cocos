@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import type { Translate } from '../i18n';
 import { isAssetParam, isFlat, matchesQuery, matchesSection, sectionsOf } from '../core/schema';
 import type { Section } from '../core/schema';
-import type { TuningParam, TuningSchema, TuningValues } from '../core/types';
+import type { TuningParam, TuningSchema, TuningValues, ValueCheck } from '../core/types';
 
 interface Props {
     schema: TuningSchema | null;
@@ -11,6 +11,26 @@ interface Props {
     onChange: (key: string, value: unknown) => void;
     onReset: () => void;
     onApplyPreset: (values: TuningValues) => void;
+    /** What the running build said about a value, keyed by param key. */
+    valueChecks?: Record<string, ValueCheck>;
+    /** Ask the build to look at one. Absent when no build is running. */
+    onCheck?: (key: string) => void;
+}
+
+/**
+ * Long enough that a single-line input is the wrong shape for it.
+ *
+ * Read off the schema's own default rather than a flag, so it works for any
+ * build: a parameter whose default runs to several lines, or to more text
+ * than fits a field, is something you are meant to edit as a block -- a level
+ * description, a config blob, a block of copy.
+ */
+const LONG_FORM_CHARS = 60;
+
+function isLongForm(param: TuningParam): boolean {
+    if (param.type !== 'string') return false;
+    const sample = typeof param.default === 'string' ? param.default : '';
+    return sample.includes('\n') || sample.length > LONG_FORM_CHARS;
 }
 
 const PRESETS_KEY = 'playable-tuner:presets';
@@ -106,6 +126,17 @@ function Field({
                 </div>
             );
         default:
+            if (isLongForm(param)) {
+                return (
+                    <textarea
+                        className="control control--wide control--area"
+                        rows={10}
+                        spellCheck={false}
+                        value={String(value ?? '')}
+                        onChange={(event) => onChange(event.target.value)}
+                    />
+                );
+            }
             return (
                 <input
                     className="control control--wide"
@@ -116,30 +147,77 @@ function Field({
     }
 }
 
+function CheckReport({ check, t }: { check: ValueCheck; t: Translate }) {
+    if (!check.supported) return <p className="field__note">{t('params.checkUnsupported')}</p>;
+
+    const lines = [
+        ...check.errors.map((text) => ({ kind: 'error' as const, text })),
+        ...check.warnings.map((text) => ({ kind: 'warn' as const, text })),
+        ...check.notes.map((text) => ({ kind: 'note' as const, text })),
+    ];
+
+    return (
+        <div className={`field__check field__check--${check.ok ? 'ok' : 'bad'}`}>
+            <strong>{check.ok ? t('params.checkOk') : t('params.checkBad')}</strong>
+            {lines.length > 0 && (
+                <ul>
+                    {lines.map((line, index) => (
+                        <li key={index} className={`field__check-${line.kind}`}>
+                            {line.text}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 function ParamRow({
     param,
     value,
     onChange,
+    onCheck,
+    check,
     t,
 }: {
     param: TuningParam;
     value: unknown;
     onChange: (value: unknown) => void;
+    onCheck?: () => void;
+    check?: ValueCheck;
     t: Translate;
 }) {
+    // Only offered where it could matter: a one-line field has nothing the
+    // build could usefully object to.
+    const checkable = onCheck && isLongForm(param);
+
     return (
         <div className="field">
             <div className="field__head">
                 <span className="field__label">{param.label ?? param.key}</span>
                 {param.live && <span className="pill pill--live">{t('params.live')}</span>}
                 <code className="field__key">{param.key}</code>
+                {checkable && (
+                    <button type="button" className="btn btn--ghost btn--tiny" onClick={onCheck}>
+                        {t('params.check')}
+                    </button>
+                )}
             </div>
             <Field param={param} value={value} onChange={onChange} t={t} />
+            {check && <CheckReport check={check} t={t} />}
         </div>
     );
 }
 
-export function ParamsPanel({ schema, values, onChange, onReset, onApplyPreset }: Props) {
+export function ParamsPanel({
+    schema,
+    values,
+    onChange,
+    onReset,
+    onApplyPreset,
+    valueChecks,
+    onCheck,
+}: Props) {
     const { t } = useI18n();
     const [presets, setPresets] = useState<PresetStore>(readPresets);
     const [query, setQuery] = useState('');
@@ -273,6 +351,8 @@ export function ParamsPanel({ schema, values, onChange, onReset, onApplyPreset }
                         param={param}
                         value={values[param.key]}
                         onChange={(value) => onChange(param.key, value)}
+                        onCheck={onCheck ? () => onCheck(param.key) : undefined}
+                        check={valueChecks?.[param.key]}
                         t={t}
                     />
                 ));

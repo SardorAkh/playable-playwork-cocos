@@ -13,7 +13,7 @@ import {
 import type { ExportSettings } from './core/export';
 import { NETWORKS, formatBytes, guessNetwork } from './core/networks';
 import { PREVIEW_CHANNEL, TUNING_CHANNEL, withPreviewShim } from './core/previewShim';
-import type { LoadedBuild, TuningValues, ValidationIssue, VfsMap } from './core/types';
+import type { LoadedBuild, TuningValues, ValidationIssue, ValueCheck, VfsMap } from './core/types';
 import { validate } from './core/validate';
 import { useI18n } from './i18n';
 import type { Lang } from './i18n';
@@ -112,6 +112,8 @@ export default function App() {
     const [busy, setBusy] = useState(false);
     const [events, setEvents] = useState<PreviewEvent[]>([]);
     const [checks, setChecks] = useState<NetworkCheck[]>([]);
+    /** Per-parameter answers from the build, keyed by param key. */
+    const [valueChecks, setValueChecks] = useState<Record<string, ValueCheck>>({});
     const [checkedAt, setCheckedAt] = useState<number | null>(null);
     const [tab, setTab] = useState<Tab>('params');
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -197,6 +199,24 @@ export default function App() {
                 case 'patched':
                     pushEvent('patched', 'patched', { keys: String(payload.keys ?? '') });
                     break;
+                case 'checked-value': {
+                    const key = String(payload.key ?? '');
+                    if (!key) break;
+                    const asText = (list: unknown) =>
+                        Array.isArray(list) ? list.map((line) => String(line)) : [];
+                    setValueChecks((prev) => ({
+                        ...prev,
+                        [key]: {
+                            key,
+                            supported: payload.supported === true,
+                            ok: payload.ok === true,
+                            errors: asText(payload.errors),
+                            warnings: asText(payload.warnings),
+                            notes: asText(payload.notes),
+                        },
+                    }));
+                    break;
+                }
                 default:
                     break;
             }
@@ -368,10 +388,41 @@ export default function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    /**
+     * Asks the running build whether a value is any good.
+     *
+     * Only the build knows the rules behind something like a level
+     * description, so the question goes to it rather than being answered here.
+     * A build that offers nothing replies `supported: false` and the panel
+     * says so instead of pretending the value is fine.
+     */
+    const checkValue = useCallback(
+        (key: string) => {
+            const frame = iframeRef.current?.contentWindow;
+            if (!frame) return;
+            setValueChecks((prev) => {
+                const next = { ...prev };
+                delete next[key];
+                return next;
+            });
+            frame.postMessage(
+                { channel: TUNING_CHANNEL, type: 'check', key, value: values[key] },
+                '*',
+            );
+        },
+        [values],
+    );
+
     const changeValue = useCallback(
         (key: string, value: unknown) => {
             setValues((prev) => ({ ...prev, [key]: value }));
             setCheckedAt(null);
+            setValueChecks((prev) => {
+                if (!(key in prev)) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+            });
             const param = build?.schema?.params.find((item) => item.key === key);
             const frame = iframeRef.current?.contentWindow;
             if (param?.live && frame) {
@@ -644,6 +695,8 @@ export default function App() {
                             <ParamsPanel
                                 schema={build.schema}
                                 values={values}
+                                valueChecks={valueChecks}
+                                onCheck={checkValue}
                                 onChange={changeValue}
                                 onReset={() => {
                                     setValues(() => defaultsFrom(build, {}));

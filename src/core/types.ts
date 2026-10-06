@@ -115,3 +115,20 @@ export interface ValidationIssue {
     code: string;
     params?: Record<string, string | number>;
 }
+
+/**
+ * What a build answers when the tuner asks it to check a value.
+ *
+ * Optional: a build defines `window.__tuningCheck__(key, value)` only if some
+ * of its parameters have rules the tuner could not know -- a level
+ * description, a config blob. `supported` is false when it defines nothing.
+ */
+export interface ValueCheck {
+    key: string;
+    supported: boolean;
+    ok: boolean;
+    errors: string[];
+    warnings: string[];
+    /** Anything worth saying about a value that passed. */
+    notes: string[];
+}
