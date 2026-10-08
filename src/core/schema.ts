@@ -3,7 +3,7 @@ import type { TuningAssets, TuningGroup, TuningParam, TuningParamType, TuningSch
 export const GENERAL_GROUP = 'general';
 
 /** Param types whose value lives in the VFS rather than in __TUNING__. */
-export const ASSET_TYPES: TuningParamType[] = ['image', 'audio', 'video'];
+export const ASSET_TYPES: TuningParamType[] = ['image', 'audio', 'video', 'font'];
 
 export function isAssetParam(param: TuningParam): boolean {
     return ASSET_TYPES.includes(param.type);

@@ -1,4 +1,4 @@
-export type TuningParamType = 'number' | 'boolean' | 'string' | 'select' | 'color' | 'image' | 'audio' | 'video';
+export type TuningParamType = 'number' | 'boolean' | 'string' | 'select' | 'color' | 'image' | 'audio' | 'video' | 'font';
 
 export interface TuningGroup {
     id: string;

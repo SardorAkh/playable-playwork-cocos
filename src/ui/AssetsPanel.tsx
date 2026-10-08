@@ -87,6 +87,55 @@ function useMediaMeta(entry: VfsEntry | null): MediaMeta | null {
     return extra ? { ...probed, ...extra } : probed;
 }
 
+let specimenSeq = 0;
+
+/**
+ * Registers an uploaded font with the document so a line can be set in it.
+ *
+ * A font slot is the one asset whose preview cannot be its own bytes: the
+ * only question worth answering is whether the face is the right one, and
+ * nothing answers that except seeing words in it. Each entry gets its own
+ * family name, so replacing the file re-renders rather than keeping the face
+ * the browser already cached under that name.
+ */
+function useFontSpecimen(entry: VfsEntry | null): string | null {
+    const [family, setFamily] = useState<string | null>(null);
+    const source = entry ? entryDataUrl(entry) : null;
+
+    useEffect(() => {
+        if (!source || typeof FontFace === 'undefined') {
+            setFamily(null);
+            return;
+        }
+        let live = true;
+        specimenSeq += 1;
+        const name = `tuner-font-${specimenSeq}`;
+        const face = new FontFace(name, `url(${source})`);
+        face.load().then(
+            (loaded) => {
+                if (!live) return;
+                document.fonts.add(loaded);
+                setFamily(name);
+            },
+            // A file that is not a font at all, or one the browser will not
+            // take: the specimen stays unset and the row still works.
+            () => {
+                if (live) setFamily(null);
+            },
+        );
+        return () => {
+            live = false;
+            try {
+                document.fonts.delete(face);
+            } catch {
+                /* a face that never loaded was never added */
+            }
+        };
+    }, [source]);
+
+    return family;
+}
+
 function describe(meta: MediaMeta | null, t: Translate): string[] {
     if (!meta) return [];
     const parts: string[] = [];
@@ -137,7 +186,9 @@ function AssetRow({
     const isImage = entry.t.startsWith('image/');
     const isAudio = entry.t.startsWith('audio/');
     const isVideo = entry.t.startsWith('video/');
+    const isFont = entry.t.startsWith('font/');
     const source = entryDataUrl(entry);
+    const specimen = useFontSpecimen(isFont ? entry : null);
     const meta = useMediaMeta(entry);
     const before = useMediaMeta(swap && original ? original : null);
 
@@ -166,7 +217,12 @@ function AssetRow({
             <div className="asset__preview">
                 {isImage && <img src={source} alt={title} />}
                 {isVideo && <video src={source} muted playsInline preload="metadata" />}
-                {!isImage && !isVideo && <span className="asset__mime">{entry.t || '?'}</span>}
+                {isFont && (
+                    <span className="asset__mime" style={specimen ? { fontFamily: specimen, fontSize: 22 } : undefined}>
+                        {specimen ? 'Aa' : entry.t || '?'}
+                    </span>
+                )}
+                {!isImage && !isVideo && !isFont && <span className="asset__mime">{entry.t || '?'}</span>}
             </div>
             <div className="asset__meta">
                 <div className="asset__title">{title}</div>
@@ -193,6 +249,16 @@ function AssetRow({
                 {containerChanged && (
                     <div className="asset__warn">{t('assets.videoContainer', { from: containerChanged })}</div>
                 )}
+                {isFont && (
+                    // The point of a font slot is whether the face is the right one, and the
+                    // only way to answer that is to set something in it.
+                    <div
+                        className="asset__fontSample"
+                        style={specimen ? { fontFamily: specimen } : { opacity: 0.5 }}
+                    >
+                        {t('assets.fontSample')}
+                    </div>
+                )}
                 {isAudio && <audio controls src={source} />}
                 {isVideo && <video className="asset__video" controls muted playsInline preload="metadata" src={source} />}
                 <div className="asset__actions">
@@ -200,7 +266,17 @@ function AssetRow({
                         {t('assets.replace')}
                         <input
                             type="file"
-                            accept={isImage ? 'image/*' : isAudio ? 'audio/*' : isVideo ? 'video/*' : undefined}
+                            accept={
+                                isImage
+                                    ? 'image/*'
+                                    : isAudio
+                                      ? 'audio/*'
+                                      : isVideo
+                                        ? 'video/*'
+                                        : isFont
+                                          ? '.ttf,.otf,.woff,.woff2,font/*'
+                                          : undefined
+                            }
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 if (file) onSwap(vfsPath, file);

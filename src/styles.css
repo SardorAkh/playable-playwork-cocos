@@ -1244,3 +1244,11 @@ select.control--wide {
     mask-image: none;
     -webkit-mask-image: none;
 }
+
+/* A font slot's specimen: the only preview that answers "is this the face?". */
+.asset__fontSample {
+    margin: 6px 0 2px;
+    font-size: 22px;
+    line-height: 1.3;
+    word-break: break-word;
+}
