@@ -9,7 +9,7 @@ import { NETWORKS } from '../src/core/networks.ts';
 import { validate } from '../src/core/validate.ts';
 import { isAssetParam, isFlat, isSwappable, matchesQuery, matchesSection, sectionsOf } from '../src/core/schema.ts';
 import { formatDuration, probeMedia } from '../src/core/media.ts';
-import { entryByteLength, entryBytes, entryText, isTextEntry, withBytes } from '../src/core/vfs.ts';
+import { entryByteLength, entryBytes, entryDataUrl, entryHead, entryText, isPackedEntry, isUnencodedEntry, withBytes } from '../src/core/vfs.ts';
 import { escapeForScript, unescapeFromScript } from '../src/core/text.ts';
 import {
     DEFAULT_ORIENTATION_SUFFIX,
@@ -41,7 +41,7 @@ console.log('parse');
 check('tuning block found', build.hasTuningBlock);
 check('schema has 8 params', build.schema?.params.length === 8, build.schema?.params.length);
 check('three swappable assets', Object.keys(build.assets).length === 3, Object.keys(build.assets));
-check('vfs parsed', Object.keys(build.vfs ?? {}).length === 4, Object.keys(build.vfs ?? {}));
+check('vfs parsed', Object.keys(build.vfs ?? {}).length === 5, Object.keys(build.vfs ?? {}));
 check('default value read', build.values.ctaText === 'PLAY NOW', build.values.ctaText);
 
 console.log('groups');
@@ -89,16 +89,35 @@ check('a video slot present in the map is swappable', isSwappable(build.schema!.
 check('an asset missing from the map is not swappable', !isSwappable({ key: 'ghostAsset', type: 'image' }, build.assets));
 
 console.log('vfs encodings and escaping');
-const textEntry = build.vfs!['src/settings.json'];
-check('a utf8 entry is flagged', isTextEntry(textEntry), textEntry?.e);
-check('its payload is the file text, not base64', entryText(textEntry).startsWith('{"note"'), entryText(textEntry).slice(0, 20));
-check('utf8 bytes are measured, not base64-decoded', entryByteLength(textEntry) === Buffer.byteLength(textEntry.d));
-check('a binary entry still decodes from base64', entryBytes(build.vfs![build.assets.logoImage.file])[1] === 0x50);
-check('a comment opener survives the round-trip', JSON.parse(entryText(textEntry)).marker === '<!-- not a comment -->');
+const packedEntry = build.vfs!['src/engine.js'];
+check('a deflated entry is flagged', isPackedEntry(packedEntry), packedEntry?.e);
+check('its payload is base64, not source', /^[A-Za-z0-9+/]+={0,2}$/.test(packedEntry.d), packedEntry.d.slice(0, 24));
+check('it inflates back to the source', entryText(packedEntry).startsWith('export function boot()'), entryText(packedEntry).slice(0, 24));
+check('deflate actually paid for itself', packedEntry.d.length < entryByteLength(packedEntry) / 4, [packedEntry.d.length, entryByteLength(packedEntry)]);
+check('its length is the inflated one', entryByteLength(packedEntry) === new TextEncoder().encode(entryText(packedEntry)).length);
+check('a header probe reads inflated bytes', entryHead(packedEntry, 6)[0] === 'e'.charCodeAt(0), [...entryHead(packedEntry, 6)]);
+check('a swap re-deflates and keeps the encoding', (() => {
+    const swapped = withBytes(packedEntry, new TextEncoder().encode('const x = 1;'));
+    return swapped.e === 'z' && entryText(swapped) === 'const x = 1;' && swapped.d !== packedEntry.d;
+})());
+check('a data url is base64 whatever the encoding', entryDataUrl(packedEntry).startsWith('data:text/javascript;base64,'), entryDataUrl(packedEntry).slice(0, 40));
+
+const settingsEntry = build.vfs!['src/settings.json'];
+check('a comment opener survives the round-trip', JSON.parse(entryText(settingsEntry)).marker === '<!-- not a comment -->');
 check('the raw payload carries no comment opener', !/window\.__PLAYABLE_FS__[^\n]*<!--/.test(build.html));
+check('a binary entry still decodes from base64', entryBytes(build.vfs![build.assets.logoImage.file])[1] === 0x50);
+check('nothing in the fixture payload is held as source', !Object.values(build.vfs ?? {}).some(isUnencodedEntry));
+
+// The shape builds carried before the payload went base64 throughout. The
+// tuner still has to read one — producers re-open files built last month — and
+// has to say that a network will reject it.
+const legacyEntry = { t: 'application/json', d: '{"note":"utf8 entry, no base64"}', e: 'utf8' };
+check('a legacy utf8 entry is flagged as unencoded', isUnencodedEntry(legacyEntry), legacyEntry.e);
+check('its payload is the file text, not base64', entryText(legacyEntry).startsWith('{"note"'), entryText(legacyEntry).slice(0, 20));
+check('utf8 bytes are measured, not base64-decoded', entryByteLength(legacyEntry) === Buffer.byteLength(legacyEntry.d));
 check('a swap keeps t and e untouched', (() => {
-    const swapped = withBytes(textEntry, new TextEncoder().encode('{"x":1}'));
-    return swapped.t === textEntry.t && swapped.e === textEntry.e;
+    const swapped = withBytes(legacyEntry, new TextEncoder().encode('{"x":1}'));
+    return swapped.t === legacyEntry.t && swapped.e === legacyEntry.e;
 })());
 
 const roundTrip = JSON.parse(unescapeFromScript(escapeForScript(JSON.stringify({ a: '</SCRIPT>', b: '<!--' }))));
@@ -174,6 +193,21 @@ const clean = validate({ ...base, html: edited, network: applovin });
 check('no blocking errors on a sane edit', !clean.some((issue) => issue.severity === 'error'), clean);
 check('mraid build passes the applovin symbol check', !clean.some((issue) => issue.code === 'missing-symbol'));
 check('window.open is only a warning', clean.some((issue) => issue.code === 'window-open' && issue.severity === 'warning'));
+
+check('a base64 payload raises no encoding issue', !clean.some((issue) => issue.code === 'payload-encoding'), clean);
+
+const legacyBuild = { ...build, vfs: { ...build.vfs, 'src/legacy.json': legacyEntry } };
+const legacyIssues = validate({ ...base, build: legacyBuild, html: edited, network: applovin });
+check(
+    'an asset held as source is an error, not a note',
+    legacyIssues.some((issue) => issue.code === 'payload-encoding' && issue.severity === 'error'),
+    legacyIssues.find((issue) => issue.code === 'payload-encoding'),
+);
+check(
+    'the issue names how many assets and what they weigh',
+    legacyIssues.some((issue) => issue.code === 'payload-encoding' && issue.params?.count === 1),
+    legacyIssues.find((issue) => issue.code === 'payload-encoding')?.params,
+);
 
 const meta = NETWORKS.find((network) => network.id === 'meta')!;
 const metaIssues = validate({ ...base, html: edited, network: meta });

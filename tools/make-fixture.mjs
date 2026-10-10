@@ -1,7 +1,7 @@
 // Builds public/fixtures/demo.html — a miniature build that follows the same
 // contract as a real one (tuning block + VFS), so the tuner can be exercised
 // end to end without dragging a 5 MB playable around.
-import { deflateSync } from 'node:zlib';
+import { deflateRawSync, deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -130,16 +130,27 @@ const assets = {
     introClip: { file: 'assets/main/native/c3/c3ab7712-demo-clip.mp4', mime: 'video/mp4' },
 };
 
-// Text files ride as-is with e:'utf8' — base64 would add a third to their weight.
+// Everything in the payload is base64: a network that scans the document
+// rejects an asset held any other way, so text pays that third back through
+// raw deflate (e:'z') rather than riding as its own source. The old e:'utf8'
+// shape is built inside the test instead — a fixture that still carried one
+// would be a build the tuner is supposed to reject.
+const engineSource = 'export function boot(){ return "tiny engine, deflated"; }\n'.repeat(40);
+const settingsSource = JSON.stringify({ note: 'deflated entry, base64 payload', marker: '<!-- not a comment -->' });
 const vfs = {
     [assets.logoImage.file]: { t: 'image/png', d: logo.toString('base64') },
     [assets.winSound.file]: { t: 'audio/wav', d: wav(0.4, 660).toString('base64') },
     // A tiny mp4 so the panel has a video slot to show; the bytes are just a valid ftyp header.
     [assets.introClip.file]: { t: 'video/mp4', d: tinyMp4().toString('base64') },
+    'src/engine.js': {
+        t: 'text/javascript',
+        d: deflateRawSync(Buffer.from(engineSource, 'utf-8'), { level: 9 }).toString('base64'),
+        e: 'z',
+    },
     'src/settings.json': {
         t: 'application/json',
-        d: JSON.stringify({ note: 'utf8 entry, no base64', marker: '<!-- not a comment -->' }),
-        e: 'utf8',
+        d: deflateRawSync(Buffer.from(settingsSource, 'utf-8'), { level: 9 }).toString('base64'),
+        e: 'z',
     },
 };
 

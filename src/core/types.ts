@@ -53,8 +53,9 @@ export type TuningAssets = Record<string, TuningAssetRef>;
 
 export interface VfsEntry {
     t: string;
-    /** base64 by default; the raw file text when `e` says utf8. */
+    /** Always base64: of the file's bytes, or of their raw deflate when `e` is `'z'`. */
     d: string;
+    /** `'z'` for raw deflate, `'utf8'` for a legacy entry holding its own source. */
     e?: string;
 }
 

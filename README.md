@@ -202,9 +202,13 @@ named slot with `"type": "video"` — it renders like any other asset slot, in i
 contract promises runtime sniffing for audio only, so swapping an mp4 for a webm is allowed but
 flagged — check that it still plays.
 
-VFS entries come in two encodings: base64 for binaries, and the file's own text when the entry says
-`e: "utf8"` (base64 would add a third to the weight of a couple of megabytes of engine JS). Sizes,
-probes, scans and downloads all go through `core/vfs.ts`, so neither case is decoded the wrong way.
+A VFS entry's payload is base64 throughout: the networks read the document, and AppLovin rejects a
+creative holding an asset any other way — "the html file contains assets that are not base64 or
+base122 encoded". `e: "z"` says those bytes are raw deflate, which is how the engine source pays the
+base64 third back. Builds from 2026-09-28 to 2026-10-09 stored text as its own source under
+`e: "utf8"`; those still load here, and validation reports them as an error naming how many assets
+and what they weigh, because only a rebuild fixes it. Sizes, probes, scans, swaps and downloads all
+go through `core/vfs.ts`, so no case is decoded the wrong way.
 Payloads escape both `</script` (keeping the tag's case) and `<!--` as `<!--`.
 
 Value presets are stored in localStorage and can be exported/imported as JSON.
@@ -257,7 +261,7 @@ src/core/        build parsing and patching — no React
   previewShim.ts preview shim, postMessage channels, log clipping
   schema.ts      tuning categories: sections, ordering, search, swappable assets
   media.ts       header-only probes: image resolution, audio rate/channels/bitrate/duration
-  vfs.ts         VFS entries: base64 vs utf8 payloads, sizes, head slices, swaps
+  vfs.ts         VFS entries: base64 and deflated payloads, sizes, head slices, swaps
   rewrap.ts      manifest reading and the §8.3 bundle → network artifact procedure
   export.ts      network × orientation matrix, file naming, archive packing
 src/i18n.tsx     dictionaries and the translate hook

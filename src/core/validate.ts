@@ -1,4 +1,4 @@
-import { entryText, isTextEntry } from './vfs';
+import { entryByteLength, entryText, isUnencodedEntry } from './vfs';
 import {
     CTA_CALLS,
     META_REFRESH,
@@ -69,7 +69,7 @@ function vfsTexts(build: LoadedBuild): string[] {
     for (const [path, entry] of Object.entries(build.vfs ?? {})) {
         if (budget <= 0) break;
         const looksTextual =
-            isTextEntry(entry) || SCANNABLE_MIME.test(entry.t) || /\.(js|json|txt|xml|css|html)$/i.test(path);
+            isUnencodedEntry(entry) || SCANNABLE_MIME.test(entry.t) || /\.(js|json|txt|xml|css|html)$/i.test(path);
         if (!looksTextual) continue;
         try {
             const text = entryText(entry);
@@ -109,6 +109,25 @@ function suspiciousHosts(sources: string[], network: NetworkProfile): string[] {
     return [...found];
 }
 
+/**
+ * Assets the document carries as their own source instead of base64. AppLovin
+ * reads the html and rejects the creative for it — "contains assets that are
+ * not base64 or base122 encoded" — and the build runs perfectly either way, so
+ * nothing but a check like this one tells the producer before the upload does.
+ * Only a rebuild fixes it; the weight is reported because that is what makes
+ * the difference obvious in the panel.
+ */
+function unencodedPayload(build: LoadedBuild): { count: number; bytes: number } {
+    let count = 0;
+    let bytes = 0;
+    for (const entry of Object.values(build.vfs ?? {})) {
+        if (!isUnencodedEntry(entry)) continue;
+        count += 1;
+        bytes += entryByteLength(entry);
+    }
+    return { count, bytes };
+}
+
 export interface ValidateInput {
     build: LoadedBuild;
     html: string;
@@ -146,6 +165,15 @@ export function validate(input: ValidateInput): ValidationIssue[] {
             severity: 'warning',
             code: 'format',
             params: { network: network.label, expected: network.format, actual: artifactFormat },
+        });
+    }
+
+    const unencoded = unencodedPayload(build);
+    if (unencoded.count > 0) {
+        issues.push({
+            severity: 'error',
+            code: 'payload-encoding',
+            params: { count: unencoded.count, size: formatBytes(unencoded.bytes) },
         });
     }
 
