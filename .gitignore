@@ -3,3 +3,6 @@ dist/
 *.local
 .DS_Store
 tsconfig.tsbuildinfo
+
+# Builds dropped into public/ to drive the tuner from the dev server while working on it.
+public/_*.html

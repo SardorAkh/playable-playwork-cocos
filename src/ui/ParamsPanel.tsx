@@ -365,6 +365,7 @@ export function ParamsPanel({
                     <section className="section" key={section.id}>
                         <button
                             className="section__head"
+                            aria-expanded={!isClosed}
                             onClick={() => setClosed((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
                         >
                             <span className={isClosed ? 'section__arrow' : 'section__arrow is-open'}>▸</span>

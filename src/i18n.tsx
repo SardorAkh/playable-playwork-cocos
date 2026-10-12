@@ -30,6 +30,8 @@ const en: Record<string, string> = {
     'top.dropVeil': 'Drop the file to load the build',
     'top.loadFailed': 'Could not load {src}: {message}',
 
+    'splitter.label': 'Panel width',
+    'splitter.hint': 'Drag to resize · double-click to reset · arrow keys to nudge',
     'tabs.params': 'Parameters',
     'tabs.assets': 'Assets',
     'tabs.issues': 'Validation',
@@ -231,6 +233,8 @@ const ru: Record<string, string> = {
     'top.dropVeil': 'Отпустите файл, чтобы загрузить билд',
     'top.loadFailed': 'Не удалось загрузить {src}: {message}',
 
+    'splitter.label': 'Ширина панели',
+    'splitter.hint': 'Потяните, чтобы изменить · двойной клик — сброс · стрелки — шаг',
     'tabs.params': 'Параметры',
     'tabs.assets': 'Ассеты',
     'tabs.issues': 'Валидация',

@@ -301,13 +301,68 @@ select.control--wide {
     margin-left: 6px;
 }
 
+/* ---------- keyboard focus ----------
+   There was no focus styling anywhere, and most controls here are custom
+   buttons with `border: 0`, which leaves the browser default almost invisible
+   against the panel. One rule covers every interactive element; :focus-visible
+   keeps it off mouse clicks. */
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+}
+
 /* ---------- layout ---------- */
 
 .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 420px;
+    /* The handle sets --panel-w; the stage takes what is left. */
+    grid-template-columns: minmax(0, 1fr) auto var(--panel-w, 560px);
     flex: 1;
     min-height: 0;
+}
+
+/* ---------- splitter ---------- */
+
+.splitter {
+    position: relative;
+    width: 7px;
+    cursor: col-resize;
+    background: var(--bg-2);
+    border-left: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+}
+
+/* A 7px target is a thin thing to hit with a mouse, so the hit area reaches
+   past the visible line on both sides without widening the column. */
+.splitter::before {
+    content: '';
+    position: absolute;
+    inset: 0 -5px;
+}
+
+.splitter__grip {
+    width: 3px;
+    height: 28px;
+    border-radius: 2px;
+    background: var(--line);
+    transition: background 0.12s, height 0.12s;
+}
+
+.splitter:hover .splitter__grip,
+.splitter:focus-visible .splitter__grip {
+    background: var(--accent);
+    height: 48px;
+}
+
+.splitter:active .splitter__grip {
+    background: var(--accent);
+    height: 100%;
+    border-radius: 0;
 }
 
 .stage {
@@ -854,6 +909,21 @@ select.control--wide {
     font: inherit;
     text-align: left;
     cursor: pointer;
+    /* Held at the top of the panel while its own parameters scroll past, so a
+       group eight rows deep still says which group it is. */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* Sticky needs the section to stop clipping it; the rounded corners move to
+   the header and the last row instead. */
+.section {
+    overflow: visible;
+}
+
+.section__head:first-child {
+    border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
 }
 
 .section__head--static {
@@ -862,6 +932,11 @@ select.control--wide {
 
 .section__head:hover:not(.section__head--static) {
     border-bottom-color: var(--line);
+    background: var(--chip);
+}
+
+.section__head:hover:not(.section__head--static) .section__arrow {
+    color: var(--accent);
 }
 
 .section__arrow {

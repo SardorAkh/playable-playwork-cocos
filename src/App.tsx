@@ -18,6 +18,7 @@ import { validate } from './core/validate';
 import { useI18n } from './i18n';
 import type { Lang } from './i18n';
 import { applyTheme, readTheme } from './theme';
+import { Splitter } from './ui/Splitter';
 import type { Theme } from './theme';
 import { AssetsPanel } from './ui/AssetsPanel';
 import type { AssetSwap } from './ui/AssetsPanel';
@@ -31,6 +32,17 @@ import { IssuesPanel } from './ui/IssuesPanel';
 import { ParamsPanel } from './ui/ParamsPanel';
 
 const SETTINGS_KEY = 'playable-tuner:preview';
+const PANEL_WIDTH_KEY = 'playable-tuner:panel-width';
+
+/**
+ * The panel starts wider than the stage needs to give up, because the stage
+ * cannot use the room: the phone in it is a fixed size and the rest is empty.
+ * The floor keeps a usable column; the ceiling leaves the widest device frame
+ * on screen.
+ */
+const PANEL_WIDTH_DEFAULT = 560;
+const PANEL_WIDTH_MIN = 360;
+const STAGE_WIDTH_MIN = 380;
 const RELOAD_GRACE_MS = 2000;
 type Tab = 'params' | 'assets' | 'export' | 'issues' | 'log';
 
@@ -39,6 +51,11 @@ interface Source {
     build: LoadedBuild;
     /** Empty for a tuner bundle: it is not tied to any single network. */
     networkId: string;
+}
+
+function readPanelWidth(): number {
+    const stored = Number(localStorage.getItem(PANEL_WIDTH_KEY));
+    return Number.isFinite(stored) && stored >= PANEL_WIDTH_MIN ? stored : PANEL_WIDTH_DEFAULT;
 }
 
 function readSettings(): PreviewSettings {
@@ -149,8 +166,25 @@ export default function App() {
     const active = sources.find((source) => source.id === activeId) ?? null;
     const build = active?.build ?? null;
 
+    const [panelWidth, setPanelWidth] = useState(readPanelWidth);
+    const [panelMax, setPanelMax] = useState(() => Math.max(PANEL_WIDTH_MIN, window.innerWidth - STAGE_WIDTH_MIN));
+
     useEffect(() => applyTheme(theme), [theme]);
     useEffect(() => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)), [settings]);
+    useEffect(() => localStorage.setItem(PANEL_WIDTH_KEY, String(Math.round(panelWidth))), [panelWidth]);
+
+    // Only the ceiling follows the window. What is stored stays the width the
+    // producer asked for: clamping the stored value instead would let one
+    // narrow moment — a split screen, a projector — throw the choice away for
+    // good, and widening the window back would not bring it back.
+    useEffect(() => {
+        const measure = () => setPanelMax(Math.max(PANEL_WIDTH_MIN, window.innerWidth - STAGE_WIDTH_MIN));
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, []);
+
+    const panelShown = Math.min(panelWidth, panelMax);
 
     const pushEvent = useCallback((kind: EventKind, code: string, params?: PreviewEvent['params'], truncated?: number) => {
         eventId.current += 1;
@@ -664,7 +698,7 @@ export default function App() {
             {loadError && <div className="banner banner--error">{loadError}</div>}
             {notice && <div className="banner banner--error">{notice}</div>}
 
-            <main className="layout">
+            <main className="layout" style={{ ['--panel-w' as string]: `${Math.round(panelShown)}px` }}>
                 <DevicePreview
                     html={previewHtml}
                     reloadToken={reloadToken}
@@ -674,6 +708,14 @@ export default function App() {
                     onChange={(patch) => setSettings((prev) => ({ ...prev, ...patch }))}
                     onReload={() => void rebuildPreview()}
                     iframeRef={iframeRef}
+                />
+
+                <Splitter
+                    width={panelShown}
+                    min={PANEL_WIDTH_MIN}
+                    max={panelMax}
+                    preferred={PANEL_WIDTH_DEFAULT}
+                    onResize={setPanelWidth}
                 />
 
                 <aside className="side">
