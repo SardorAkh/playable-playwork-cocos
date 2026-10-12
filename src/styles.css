@@ -24,6 +24,19 @@
     --shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
     --on-warn: #ffffff;
     --radius: 9px;
+
+    /* A type scale, because there was not one: the whole interface sat between
+       10px and 13px, so a group title was one pixel away from a hint and
+       nothing could be told apart by size. Each step is a role, not a number:
+       2xs is reference text you scan (a parameter key), xs is metadata, sm is
+       a label or a control, md is prose you read, lg is a group title. */
+    --text-2xs: 11px;
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-md: 14px;
+    --text-lg: 15px;
+    --text-xl: 17px;
+
     color-scheme: light;
 }
 
@@ -87,7 +100,30 @@ body,
 body {
     background: var(--bg);
     color: var(--text);
-    font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    /* system-ui first: it is the standard keyword now, and -apple-system stays
+       behind it for older Safari. On a Mac both land on SF Pro, which is what
+       this interface was already using — it just was not getting the two
+       settings that make SF read the way it does in Apple's own UI. */
+    font: var(--text-md)/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    /* macOS browsers default to subpixel antialiasing, which thickens small
+       text and muddies it. Grayscale antialiasing is what Apple ships, and at
+       12-13px it is the difference between crisp and smeared. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Digits that keep their column. A tuner is mostly numbers that change under
+   the cursor — a slider readout, a file size, a group count — and with
+   proportional figures each change shifts the ones next to it. */
+input,
+select,
+code,
+.field__key,
+.section__count,
+.stage__status,
+.asset__size,
+.chip {
+    font-variant-numeric: tabular-nums;
 }
 
 body.resizing {
@@ -96,7 +132,7 @@ body.resizing {
 }
 
 code {
-    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font: var(--text-xs)/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .app {
@@ -142,7 +178,7 @@ code {
 
 .top__file span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .top__file--muted {
@@ -158,7 +194,7 @@ code {
 
 .banner {
     padding: 8px 16px;
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .banner--error {
@@ -177,7 +213,7 @@ code {
     border-radius: var(--radius);
     padding: 5px 10px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -206,7 +242,7 @@ code {
 
 .control--mini {
     padding: 5px 6px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .control--num {
@@ -253,7 +289,7 @@ select.control--wide {
 }
 
 .check--tiny {
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .seg {
@@ -269,7 +305,7 @@ select.control--wide {
     border: 0;
     padding: 6px 12px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     cursor: pointer;
 }
 
@@ -280,14 +316,14 @@ select.control--wide {
 
 .seg--mini .seg__btn {
     padding: 5px 8px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .pill {
     display: inline-block;
     padding: 1px 6px;
     border-radius: 999px;
-    font-size: 10px;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.4px;
 }
@@ -421,7 +457,7 @@ select.control--wide {
     border-top: 1px solid var(--line);
     background: var(--bg-2);
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 /* ---------- device frame ---------- */
@@ -641,7 +677,7 @@ select.control--wide {
     color: var(--muted);
     padding: 10px 4px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     cursor: pointer;
 }
 
@@ -654,6 +690,10 @@ select.control--wide {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    /* Recessed, so the group cards above it read as cards. They used to be
+       white on white, separated by a hairline and nothing else. No new colour
+       is involved: the page grey was already in the palette. */
+    background: var(--bg);
 }
 
 .panel__body {
@@ -674,18 +714,20 @@ select.control--wide {
 .panel__note {
     padding: 16px 12px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .panel__note {
-    background: var(--bg-3);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
-    padding: 10px;
+    padding: 10px 12px;
+    line-height: 1.55;
 }
 
 .panel__hint {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .chips {
@@ -702,7 +744,7 @@ select.control--wide {
     border: 1px solid var(--line);
     border-radius: 999px;
     padding: 2px 4px 2px 10px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .chip button {
@@ -710,7 +752,7 @@ select.control--wide {
     border: 0;
     color: var(--muted);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--text-md);
     line-height: 1;
     padding: 0 4px;
 }
@@ -735,9 +777,18 @@ select.control--wide {
     font-weight: 600;
 }
 
+/* The parameter key is an identifier a producer quotes to a developer or
+   pastes into a prompt — reference, not content. Set as plain grey text beside
+   the label it competed with it for the same reading. A quiet chip separates
+   the two by kind rather than by contrast, so it stays legible without
+   pulling the eye. */
 .field__key {
-    color: var(--muted);
     margin-left: auto;
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--chip);
+    color: var(--muted);
 }
 
 /* Label and control on one line, with the parameter key right-aligned in the
@@ -792,7 +843,7 @@ select.control--wide {
 
 .sources__label {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
     margin-right: 2px;
 }
 
@@ -804,7 +855,7 @@ select.control--wide {
 .chip em {
     font-style: normal;
     color: var(--muted);
-    font-size: 10px;
+    font-size: var(--text-xs);
 }
 
 .group {
@@ -850,7 +901,7 @@ select.control--wide {
     align-items: center;
     gap: 6px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .target__row {
@@ -861,7 +912,7 @@ select.control--wide {
 }
 
 .target__note {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }
 
@@ -878,7 +929,7 @@ select.control--wide {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--muted);
     min-width: 0;
 }
@@ -928,6 +979,7 @@ select.control--wide {
     border: 1px solid var(--line);
     border-radius: var(--radius);
     overflow: hidden;
+    background: var(--bg-2);
 }
 
 .section__head {
@@ -948,6 +1000,9 @@ select.control--wide {
     position: sticky;
     top: 0;
     z-index: 1;
+    /* A hairline under it while stuck, so the pinned title reads as a lid over
+       the rows rather than floating in them. */
+    box-shadow: inset 0 -1px 0 var(--line);
 }
 
 /* Sticky needs the section to stop clipping it; the rounded corners move to
@@ -958,6 +1013,13 @@ select.control--wide {
 
 .section__head:first-child {
     border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+}
+
+/* The card clips nothing (sticky needs that), so its own top corners have to
+   be drawn by the header, and the card needs a hair of inset at the top or the
+   pinned header leaves a sliver of card showing above it. */
+.section {
+    padding-top: 0;
 }
 
 .section__head--static {
@@ -983,13 +1045,17 @@ select.control--wide {
 }
 
 .section__title {
+    font-size: var(--text-lg);
     font-weight: 600;
+    /* SF opens up as it scales, so the larger steps need pulling in slightly;
+       below 15px it needs none. */
+    letter-spacing: -0.012em;
 }
 
 .section__count {
     margin-left: auto;
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 /* A 12px gap between rows that are themselves only 37px tall is a third of the
@@ -1010,12 +1076,12 @@ select.control--wide {
 
 .section__note {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .section__empty {
     color: var(--warn);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .asset--locked {
@@ -1049,7 +1115,7 @@ select.control--wide {
 }
 
 .asset__mime {
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--muted);
     text-align: center;
     padding: 4px;
@@ -1075,17 +1141,17 @@ select.control--wide {
 }
 
 .asset__size {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }
 
 .asset__slot {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }
 
 .asset__warn {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--warn);
 }
 
@@ -1147,12 +1213,12 @@ select.control--wide {
     padding: 8px 10px;
     border-radius: var(--radius);
     background: var(--bg-3);
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .issue__badge {
     flex: none;
-    font-size: 10px;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     padding: 1px 6px;
     border-radius: 999px;
@@ -1273,7 +1339,7 @@ select.control--wide {
     place-items: center;
     background: var(--veil);
     border: 2px dashed var(--accent);
-    font-size: 16px;
+    font-size: var(--text-xl);
     pointer-events: none;
 }
 
@@ -1281,7 +1347,7 @@ select.control--wide {
 .control--area {
     min-height: 180px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.5;
     resize: vertical;
     white-space: pre;
@@ -1292,7 +1358,7 @@ select.control--wide {
 .btn--tiny {
     margin-left: auto;
     padding: 2px 10px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 /* What the build said about a value. */
@@ -1301,7 +1367,7 @@ select.control--wide {
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid var(--line);
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.45;
 }
 
@@ -1319,7 +1385,7 @@ select.control--wide {
 
 .field__note {
     margin: 8px 0 0;
-    font-size: 12px;
+    font-size: var(--text-sm);
     opacity: 0.75;
 }
 
@@ -1343,7 +1409,7 @@ select.control--wide {
     white-space: pre-wrap;
     word-break: break-word;
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.5;
     /* Fades out rather than cutting, so it reads as folded and not as broken. */
     mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
