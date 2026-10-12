@@ -296,6 +296,27 @@ export function ParamsPanel({
 
     return (
         <div className="panel__body">
+            {/* The search is what gets used on every visit, so it comes first; the
+                navigation sits with it because both are about finding a parameter.
+                Presets and the import/export machinery are occasional and go last. */}
+            {!flat && (
+                <input
+                    className="control control--wide"
+                    placeholder={t('params.search')}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                />
+            )}
+            {!flat && (
+                <GroupNav
+                    groups={editableSections}
+                    countOf={(group) => sections.find((item) => item.id === group.id)?.params.length ?? 0}
+                    domIdPrefix="param"
+                    onOpen={groups.open}
+                    onCollapseAll={() => groups.collapseAll(editableSections)}
+                    onExpandAll={groups.expandAll}
+                />
+            )}
             <div className="panel__tools">
                 <select
                     className="control"
@@ -326,18 +347,6 @@ export function ParamsPanel({
                     {t('params.reset')}
                 </button>
             </div>
-
-            {!flat && (
-                <GroupNav
-                    groups={editableSections}
-                    countOf={(group) => sections.find((item) => item.id === group.id)?.params.length ?? 0}
-                    domIdPrefix="param"
-                    onOpen={groups.open}
-                    onCollapseAll={() => groups.collapseAll(editableSections)}
-                    onExpandAll={groups.expandAll}
-                />
-            )}
-
             {Object.keys(presets).length > 0 && (
                 <div className="chips">
                     {Object.keys(presets).map((name) => (
@@ -351,14 +360,8 @@ export function ParamsPanel({
                 </div>
             )}
 
-            {!flat && (
-                <input
-                    className="control control--wide"
-                    placeholder={t('params.search')}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                />
-            )}
+
+
 
             {editableSections.map((section) => {
                 const visible = section.params.filter((param) => matchesQuery(param, section, query));

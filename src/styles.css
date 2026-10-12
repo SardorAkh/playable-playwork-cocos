@@ -7,11 +7,15 @@
     --line: #d4d4d9;
     --text: #1c1c1e;
     --muted: #6a6a6f;
-    --accent: #0071e3;
-    /* The accent as a fill with --on-accent text on it. Separate from --accent
-       because that one also has to read as text and as a 2px outline, and in
-       dark mode one value cannot do both: #0a84ff is right against #1c1c1e and
-       leaves white on it at 3.65:1, under AA. */
+    /* Carries text — a ghost button's label, a link, a note's action — so it has
+       to clear AA on all three surfaces it can land on, not just the card.
+       #0071e3 was 4.7 on white but 4.21 on the recessed panel and 3.95 on a
+       group header. */
+    --accent: #0066d8;
+    /* The accent as a fill with --on-accent text on it. A separate token
+       because the two pull opposite ways: a fill wants to be dark enough for
+       white text, a label wants to be dark enough against a light surface, and
+       in dark mode they go in opposite directions entirely. */
     --accent-fill: #0071e3;
     --on-accent: #ffffff;
     --ok: #1a7f37;
@@ -48,7 +52,7 @@
         --line: #38383a;
         --text: #f2f2f7;
         --muted: #98989d;
-        --accent: #0a84ff;
+        --accent: #1596ff;
         --accent-fill: #0072ed;
         --on-accent: #ffffff;
         --ok: #30d158;
@@ -71,7 +75,7 @@
     --line: #38383a;
     --text: #f2f2f7;
     --muted: #98989d;
-    --accent: #0a84ff;
+    --accent: #1596ff;
     --accent-fill: #0072ed;
     --on-accent: #ffffff;
     --ok: #30d158;
@@ -220,6 +224,67 @@ code {
 
 .control:hover:not(:disabled) {
     border-color: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+/* ---------- receiving vs acting ----------
+   `.control` was worn by the fields and the buttons alike: 55 elements on one
+   screen with the same border, fill and radius, so a thing you type into and a
+   thing you press were indistinguishable. The split is by context rather than
+   by new classes, because that is also the honest distinction — inside a row a
+   control takes a value, in a toolbar it does something. */
+
+/* A field receives. Recessed onto the card surface, with the inset edge that
+   says text goes in here. */
+.field input.control,
+.field textarea.control,
+.field select.control,
+.panel__body > input.control {
+    background: var(--bg-2);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 4%);
+    cursor: text;
+}
+
+.field select.control,
+.panel__body > select.control {
+    cursor: pointer;
+}
+
+.field input.control:focus,
+.field textarea.control:focus,
+.panel__body > input.control:focus {
+    border-color: var(--accent);
+}
+
+/* An action is quiet until it is reached for. Of the eight controls in these
+   toolbars only the search is used constantly; the rest are occasional, and
+   eight equally loud pills above the one thing people use is the noise. */
+.panel__tools .control,
+.stage__bar .control {
+    background: transparent;
+    border-color: transparent;
+    color: var(--accent);
+}
+
+.panel__tools .control:hover:not(:disabled),
+.stage__bar .control:hover:not(:disabled) {
+    background: var(--chip);
+    border-color: transparent;
+}
+
+/* Except the one that is primary: exactly one filled button per context is what
+   makes it findable. */
+.panel__tools .control--primary,
+.stage__bar .control--primary {
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
+    color: var(--on-accent);
+}
+
+/* A select in a toolbar is a menu, so it keeps a hairline to show it opens. */
+.panel__tools select.control,
+.stage__bar select.control {
+    border-color: var(--line);
+    color: var(--text);
 }
 
 .control:disabled {
@@ -690,6 +755,9 @@ select.control--wide {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    /* So the rows can answer to the panel's width rather than the window's —
+       the panel is resizable, and the window tells them nothing. */
+    container-type: inline-size;
     /* Recessed, so the group cards above it read as cards. They used to be
        white on white, separated by a hairline and nothing else. No new colour
        is involved: the page grey was already in the palette. */
@@ -819,6 +887,21 @@ select.control--wide {
 .field--inline > .field__note,
 .field--inline > .field__check {
     grid-column: 1 / -1;
+}
+
+@container (max-width: 520px) {
+    /* A 250px label column breaks "Play pasted boards in a random order" into
+       three lines, which is worse than the stack the inline row replaced. */
+    .field--inline {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: stretch;
+    }
+
+    .field--inline .field__key {
+        font-size: var(--text-2xs);
+    }
 }
 
 .field__input--row {
