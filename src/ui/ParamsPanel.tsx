@@ -173,6 +173,29 @@ function CheckReport({ check, t }: { check: ValueCheck; t: Translate }) {
     );
 }
 
+/**
+ * Types whose control is small enough to sit beside its label. A label above a
+ * checkbox costs 59px of a panel that already scrolls for seven screens, and
+ * reads no better for it. Text, JSON and asset slots keep the full width,
+ * because there the input is the thing that needs the room.
+ */
+const INLINE_TYPES = new Set(['boolean', 'number', 'select', 'color']);
+
+const CLOSED_KEY = 'playable-tuner:closed-groups';
+
+function readClosed(): Record<string, boolean> {
+    try {
+        return JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '{}') as Record<string, boolean>;
+    } catch {
+        return {};
+    }
+}
+
+/** The id the jump list scrolls to; also what makes each group linkable. */
+function groupDomId(id: string): string {
+    return `param-group-${id}`;
+}
+
 function ParamRow({
     param,
     value,
@@ -193,7 +216,7 @@ function ParamRow({
     const checkable = onCheck && isLongForm(param);
 
     return (
-        <div className="field">
+        <div className={INLINE_TYPES.has(param.type) ? 'field field--inline' : 'field'}>
             <div className="field__head">
                 <span className="field__label">{param.label ?? param.key}</span>
                 {param.live && <span className="pill pill--live">{t('params.live')}</span>}
@@ -222,7 +245,11 @@ export function ParamsPanel({
     const { t } = useI18n();
     const [presets, setPresets] = useState<PresetStore>(readPresets);
     const [query, setQuery] = useState('');
-    const [closed, setClosed] = useState<Record<string, boolean>>({});
+    // Remembered across reloads: which groups a producer keeps shut is a
+    // working preference, and losing it on every refresh is why the panel
+    // always opens at seven screens.
+    const [closed, setClosed] = useState<Record<string, boolean>>(readClosed);
+    useEffect(() => localStorage.setItem(CLOSED_KEY, JSON.stringify(closed)), [closed]);
 
     // Categories are presentational only, so their order is the schema's order — never sorted.
     const sections = useMemo(() => sectionsOf(schema), [schema]);
@@ -316,6 +343,44 @@ export function ParamsPanel({
                 </button>
             </div>
 
+            {!flat && editableSections.length > 1 && (
+                <div className="panel__tools">
+                    <select
+                        className="control"
+                        aria-label={t('params.jumpLabel')}
+                        value=""
+                        onChange={(event) => {
+                            const id = event.target.value;
+                            if (!id) return;
+                            // Opened before the scroll: jumping to a shut group
+                            // and landing on a closed header is a dead end.
+                            setClosed((prev) => ({ ...prev, [id]: false }));
+                            requestAnimationFrame(() =>
+                                document.getElementById(groupDomId(id))?.scrollIntoView({ block: 'start' }),
+                            );
+                        }}
+                    >
+                        <option value="">{t('params.jumpTo')}</option>
+                        {editableSections.map((section) => (
+                            <option key={section.id} value={section.id}>
+                                {section.title} ({sections.find((item) => item.id === section.id)?.params.length ?? 0})
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        className="control"
+                        onClick={() =>
+                            setClosed(Object.fromEntries(editableSections.map((section) => [section.id, true])))
+                        }
+                    >
+                        {t('params.collapseAll')}
+                    </button>
+                    <button className="control" onClick={() => setClosed({})}>
+                        {t('params.expandAll')}
+                    </button>
+                </div>
+            )}
+
             {Object.keys(presets).length > 0 && (
                 <div className="chips">
                     {Object.keys(presets).map((name) => (
@@ -362,7 +427,7 @@ export function ParamsPanel({
 
                 const isClosed = Boolean(closed[section.id]) && !query;
                 return (
-                    <section className="section" key={section.id}>
+                    <section className="section" id={groupDomId(section.id)} key={section.id}>
                         <button
                             className="section__head"
                             aria-expanded={!isClosed}

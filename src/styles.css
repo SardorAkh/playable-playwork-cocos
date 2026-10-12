@@ -733,6 +733,33 @@ select.control--wide {
     margin-left: auto;
 }
 
+/* Label and control on one line, with the parameter key right-aligned in the
+   label column so it forms a rail between the two. The control column is given
+   slightly more than half: a slider with its number box beside it is the
+   widest thing that lands here. */
+.field--inline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: center;
+    column-gap: 12px;
+    gap: 0;
+    padding-bottom: 8px;
+}
+
+.field--inline > .field__head {
+    min-width: 0;
+}
+
+.field--inline .field__label {
+    overflow-wrap: anywhere;
+}
+
+/* A note or a check result belongs under both columns, not beside the label. */
+.field--inline > .field__note,
+.field--inline > .field__check {
+    grid-column: 1 / -1;
+}
+
 .field__input--row {
     display: flex;
     align-items: center;
@@ -958,11 +985,14 @@ select.control--wide {
     font-size: 11px;
 }
 
+/* A 12px gap between rows that are themselves only 37px tall is a third of the
+   panel spent on air; each row already carries its own bottom rule. Full-width
+   rows keep their own padding-bottom, so they still breathe. */
 .section__body {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 12px 10px;
+    gap: 4px;
+    padding: 10px;
 }
 
 .section__body > .field:last-child,

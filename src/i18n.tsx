@@ -79,6 +79,10 @@ const en: Record<string, string> = {
     'stage.strictSandbox': 'strict sandbox',
     'stage.strictSandboxHint': 'allow-scripts only: full isolation, but localStorage inside the playable will throw',
 
+    'params.jumpTo': 'Go to group…',
+    'params.jumpLabel': 'Go to group',
+    'params.collapseAll': 'Collapse all',
+    'params.expandAll': 'Expand all',
     'params.presets': 'Presets…',
     'params.save': 'Save',
     'params.export': 'Export',
@@ -282,6 +286,10 @@ const ru: Record<string, string> = {
     'stage.strictSandbox': 'строгая песочница',
     'stage.strictSandboxHint': 'Только allow-scripts: полная изоляция, но localStorage внутри плеебла упадёт',
 
+    'params.jumpTo': 'К группе…',
+    'params.jumpLabel': 'Перейти к группе',
+    'params.collapseAll': 'Свернуть всё',
+    'params.expandAll': 'Развернуть всё',
     'params.presets': 'Пресеты…',
     'params.save': 'Сохранить',
     'params.export': 'Экспорт',
