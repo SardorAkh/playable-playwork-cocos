@@ -11,6 +11,7 @@ import { isAssetParam, isFlat, isSwappable, matchesQuery, matchesSection, sectio
 import { formatDuration, probeMedia } from '../src/core/media.ts';
 import { entryByteLength, entryBytes, entryDataUrl, entryHead, entryText, isPackedEntry, isUnencodedEntry, withBytes } from '../src/core/vfs.ts';
 import { escapeForScript, unescapeFromScript } from '../src/core/text.ts';
+import { hasUnencodedPayload, isLegacyPayload, lacksFontInterception, repackLegacyPayload } from '../src/core/repack.ts';
 import {
     DEFAULT_ORIENTATION_SUFFIX,
     ORIENTATIONS,
@@ -120,6 +121,64 @@ check('a swap keeps t and e untouched', (() => {
     return swapped.t === legacyEntry.t && swapped.e === legacyEntry.e;
 })());
 
+console.log('legacy payload repack');
+// A document from before the payload went base64 throughout: text assets sit in
+// it as their own source, which is exactly what the networks reject.
+const legacyPayload = {
+    // Big enough that deflate beats the inflater it has to ship; the small
+    // case is checked below.
+    'src/boot.js': { t: 'text/javascript', d: 'export function boot(){ return "x"; }\n'.repeat(2000), e: 'utf8' },
+    'src/cfg.json': { t: 'application/json', d: JSON.stringify({ marker: '<!-- not a comment -->', tag: '</SCRIPT>' }), e: 'utf8' },
+    'img/logo.png': { t: 'image/png', d: bytesToBase64(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4])) },
+};
+const legacyHtml = [
+    '<!doctype html><html><head><title>legacy</title>',
+    '<script>window.__PLAYABLE_FS__ = ' + escapeForScript(JSON.stringify(legacyPayload)) + ';</script>',
+    '<script>/* the build\'s own vfs runtime, untouched by the repack */ var files = window.__PLAYABLE_FS__;</script>',
+    '</head><body></body></html>',
+].join('\n');
+
+check('a legacy payload is recognised', isLegacyPayload(legacyHtml));
+check('and reported as not base64', hasUnencodedPayload(legacyHtml));
+check('a runtime without the font hook is flagged', lacksFontInterception(legacyHtml));
+
+const repacked = repackLegacyPayload(legacyHtml);
+check('the repack shrinks the document', repacked.length < legacyHtml.length, [legacyHtml.length, repacked.length]);
+check('nothing is left outside base64', !hasUnencodedPayload(repacked));
+check('no "e":"utf8" survives in the document', !repacked.includes('"e":"utf8"'));
+check('the build\'s own runtime script is still there', repacked.includes('untouched by the repack'));
+check('the blob carries no </script or <!--', !/window\.__PLAYABLE_FS__ = \(function[\s\S]*?<\/script|<!--/.test(
+    repacked.slice(repacked.indexOf('var packed'), repacked.indexOf('var binary'))));
+
+// The decisive one: run the bootstrap the way a browser would and compare the
+// object the old runtime would receive against the one it used to receive.
+const scripts = [...repacked.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const sandbox: Record<string, unknown> = { atob, Uint8Array, JSON, TextDecoder, Object };
+sandbox.window = sandbox;
+for (const body of scripts.slice(0, 2)) new Function('window', 'atob', 'Uint8Array', body)(sandbox, atob, Uint8Array);
+const restored = (sandbox as { __PLAYABLE_FS__?: unknown }).__PLAYABLE_FS__;
+check('the bootstrap restores the payload exactly', JSON.stringify(restored) === JSON.stringify(legacyPayload));
+check('legacy utf8 entries come back as utf8', (restored as typeof legacyPayload)['src/boot.js'].e === 'utf8');
+check('a comment opener survives the repack', (restored as typeof legacyPayload)['src/cfg.json'].d.includes('<!-- not a comment -->'));
+check('an uppercase </SCRIPT> survives the repack', (restored as typeof legacyPayload)['src/cfg.json'].d.includes('</SCRIPT>'));
+check('pako is not left on the global', !('pako' in sandbox));
+
+// A current build is left alone: its entries are already compressed one by one.
+// The inflater costs about 23 KB, so a payload too small to pay for it is
+// left exactly as it was rather than made bigger.
+const tinyHtml = legacyHtml.replace(
+    escapeForScript(JSON.stringify(legacyPayload)),
+    escapeForScript(JSON.stringify({ 'src/t.json': { t: 'application/json', d: '{"a":1}', e: 'utf8' } })),
+);
+check('the small fixture really is small', tinyHtml.length < 1000, tinyHtml.length);
+check('a payload too small to pay for the inflater is left alone',
+    repackLegacyPayload(tinyHtml) === tinyHtml, repackLegacyPayload(tinyHtml).length);
+
+check('a modern payload is not repacked', repackLegacyPayload(build.html) === build.html);
+check('and is not called legacy', !isLegacyPayload(build.html));
+check('nor flagged for fonts when the hook is present',
+    !lacksFontInterception(build.html.replace('__PLAYABLE_FS__', 'inlineStyleNode __PLAYABLE_FS__')));
+
 const roundTrip = JSON.parse(unescapeFromScript(escapeForScript(JSON.stringify({ a: '</SCRIPT>', b: '<!--' }))));
 check('script tag keeps its case through the escape', roundTrip.a === '</SCRIPT>', roundTrip.a);
 check('comment opener round-trips', roundTrip.b === '<!--');
@@ -196,17 +255,22 @@ check('window.open is only a warning', clean.some((issue) => issue.code === 'win
 
 check('a base64 payload raises no encoding issue', !clean.some((issue) => issue.code === 'payload-encoding'), clean);
 
-const legacyBuild = { ...build, vfs: { ...build.vfs, 'src/legacy.json': legacyEntry } };
-const legacyIssues = validate({ ...base, build: legacyBuild, html: edited, network: applovin });
+// The check reads the document that ships, so a payload the export would have
+// repacked raises nothing and one that somehow got past it raises an error.
+const legacyIssues = validate({ ...base, html: legacyHtml, network: applovin });
 check(
-    'an asset held as source is an error, not a note',
+    'an asset held as source in the shipped html is an error',
     legacyIssues.some((issue) => issue.code === 'payload-encoding' && issue.severity === 'error'),
     legacyIssues.find((issue) => issue.code === 'payload-encoding'),
 );
 check(
-    'the issue names how many assets and what they weigh',
-    legacyIssues.some((issue) => issue.code === 'payload-encoding' && issue.params?.count === 1),
-    legacyIssues.find((issue) => issue.code === 'payload-encoding')?.params,
+    'a repacked document raises no encoding issue',
+    !validate({ ...base, html: repackLegacyPayload(legacyHtml), network: applovin })
+        .some((issue) => issue.code === 'payload-encoding'),
+);
+check(
+    'a build from before the font hook is warned about',
+    legacyIssues.some((issue) => issue.code === 'legacy-fonts' && issue.severity === 'warning'),
 );
 
 const meta = NETWORKS.find((network) => network.id === 'meta')!;

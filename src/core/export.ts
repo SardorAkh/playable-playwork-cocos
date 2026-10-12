@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { composeHtml, serialize } from './bundle';
 import type { NetworkProfile } from './networks';
+import { repackLegacyPayload } from './repack';
 import { packRecipe, recipeFor, recipeZipEntries, rewrapHtml } from './rewrap';
 import type { ZipEntry } from './rewrap';
 import type { LoadedBuild, TuningValues, VfsMap } from './types';
@@ -155,13 +156,17 @@ export async function buildArtifact(
     if (build.manifest) {
         const recipe = recipeFor(build.manifest, networkId);
         if (!recipe) throw new Error(`bundle has no recipe for "${networkId}"`);
-        const html = rewrapHtml(tuned, recipe);
+        const html = repackLegacyPayload(rewrapHtml(tuned, recipe));
         const entries = orientedEntries(recipeZipEntries(recipe), orientation);
         return { blob: await packRecipe(html, recipe, entries), html, maxBytes: recipe.maxSizeBytes };
     }
 
+    // After the rewrap, so whichever document is about to ship is the one that
+    // gets its payload compressed — and only the export pays for it. The
+    // preview runs the build as it is.
+    const html = repackLegacyPayload(tuned);
     const extras = orientedEntries(build.extras, orientation);
-    return { blob: await serialize({ ...build, extras }, tuned), html: tuned, maxBytes: null };
+    return { blob: await serialize({ ...build, extras }, html), html, maxBytes: null };
 }
 
 export async function packExport(

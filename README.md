@@ -206,9 +206,19 @@ A VFS entry's payload is base64 throughout: the networks read the document, and 
 creative holding an asset any other way — "the html file contains assets that are not base64 or
 base122 encoded". `e: "z"` says those bytes are raw deflate, which is how the engine source pays the
 base64 third back. Builds from 2026-09-28 to 2026-10-09 stored text as its own source under
-`e: "utf8"`; those still load here, and validation reports them as an error naming how many assets
-and what they weigh, because only a rebuild fixes it. Sizes, probes, scans, swaps and downloads all
-go through `core/vfs.ts`, so no case is decoded the wrong way.
+`e: "utf8"`. Those still load here, and the export repacks them on its own (`core/repack.ts`): the
+payload becomes a single deflated base64 blob, and a bootstrap put in front of the build's own VFS
+runtime inflates it back into exactly the object that runtime has always read. The runtime is
+untouched, so nothing in it can break, and the document carries nothing but base64 — a 4.67 MB
+bundle comes out at 2.74 MB, which is what a rebuild would weigh. It applies to any payload the
+builder did not compress itself, so an oversized older build gets the same benefit, and it is
+skipped when the inflater would cost more than the compression saves. Sizes, probes, scans, swaps
+and downloads all go through `core/vfs.ts`, so no case is decoded the wrong way.
+
+Two things the repack cannot reach, because they live in the build's own code rather than its
+payload: the CTA redirect fallback that older builders put in network artifacts, and — before
+2026-09-28 — fonts the engine injects through `@font-face`, which such a build fetches over the
+network. Validation warns about both (`legacy-fonts`); only a rebuild fixes them.
 Payloads escape both `</script` (keeping the tag's case) and `<!--` as `<!--`.
 
 Value presets are stored in localStorage and can be exported/imported as JSON.

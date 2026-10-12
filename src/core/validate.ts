@@ -1,4 +1,5 @@
-import { entryByteLength, entryText, isUnencodedEntry } from './vfs';
+import { entryText, isUnencodedEntry } from './vfs';
+import { hasUnencodedPayload, lacksFontInterception } from './repack';
 import {
     CTA_CALLS,
     META_REFRESH,
@@ -109,25 +110,6 @@ function suspiciousHosts(sources: string[], network: NetworkProfile): string[] {
     return [...found];
 }
 
-/**
- * Assets the document carries as their own source instead of base64. AppLovin
- * reads the html and rejects the creative for it — "contains assets that are
- * not base64 or base122 encoded" — and the build runs perfectly either way, so
- * nothing but a check like this one tells the producer before the upload does.
- * Only a rebuild fixes it; the weight is reported because that is what makes
- * the difference obvious in the panel.
- */
-function unencodedPayload(build: LoadedBuild): { count: number; bytes: number } {
-    let count = 0;
-    let bytes = 0;
-    for (const entry of Object.values(build.vfs ?? {})) {
-        if (!isUnencodedEntry(entry)) continue;
-        count += 1;
-        bytes += entryByteLength(entry);
-    }
-    return { count, bytes };
-}
-
 export interface ValidateInput {
     build: LoadedBuild;
     html: string;
@@ -168,13 +150,17 @@ export function validate(input: ValidateInput): ValidationIssue[] {
         });
     }
 
-    const unencoded = unencodedPayload(build);
-    if (unencoded.count > 0) {
-        issues.push({
-            severity: 'error',
-            code: 'payload-encoding',
-            params: { count: unencoded.count, size: formatBytes(unencoded.bytes) },
-        });
+    // Judged on the document that is about to ship, not on the one that was
+    // loaded: the export repacks a legacy payload into base64 on its way out,
+    // so a build that arrives non-compliant leaves compliant. An error here
+    // means something got past that.
+    if (hasUnencodedPayload(html)) {
+        issues.push({ severity: 'error', code: 'payload-encoding' });
+    }
+
+    // The repack cannot reach what is baked into the build's own runtime.
+    if (lacksFontInterception(html)) {
+        issues.push({ severity: 'warning', code: 'legacy-fonts' });
     }
 
     if (build.hasTuningBlock && !hasIntactMarkers(html)) {
