@@ -782,12 +782,15 @@ select.control--wide {
    the label it competed with it for the same reading. A quiet chip separates
    the two by kind rather than by contrast, so it stays legible without
    pulling the eye. */
+/* Right-aligned in the label column, so every key on the panel lines up in one
+   rail — alignment separates it from the label for free, where a chip
+   background cost 46 filled rectangles on a single screen. Monospace and the
+   smallest step say the rest: this is reference you scan for, not prose. */
 .field__key {
     margin-left: auto;
     flex: none;
-    padding: 1px 6px;
-    border-radius: 5px;
-    background: var(--chip);
+    padding-right: 2px;
+    font-size: var(--text-2xs);
     color: var(--muted);
 }
 
@@ -1355,9 +1358,32 @@ select.control--wide {
     overflow-x: auto;
 }
 
+/* SectionNote and the value check ask for .btn and .btn--ghost, and neither
+   existed — only .btn--tiny did. Those five buttons were rendering in the
+   browser's default chrome (2px outset black, square corners) in the middle of
+   a panel where everything else is a rounded control. A ghost button is the
+   quietest affordance there is: no fill, no border until you reach for it. */
+.btn {
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: var(--chip);
+}
+
+.btn--ghost {
+    color: var(--accent);
+}
+
 .btn--tiny {
     margin-left: auto;
-    padding: 2px 10px;
+    padding: 2px 8px;
     font-size: var(--text-xs);
 }
 
