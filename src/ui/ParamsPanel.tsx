@@ -4,6 +4,7 @@ import type { Translate } from '../i18n';
 import { isAssetParam, isFlat, matchesQuery, matchesSection, sectionsOf } from '../core/schema';
 import type { Section } from '../core/schema';
 import { SectionNote } from './SectionNote';
+import { GroupHead, GroupNav, groupDomId, useClosedGroups } from './groupNav';
 import type { TuningParam, TuningSchema, TuningValues, ValueCheck } from '../core/types';
 
 interface Props {
@@ -183,19 +184,6 @@ const INLINE_TYPES = new Set(['boolean', 'number', 'select', 'color']);
 
 const CLOSED_KEY = 'playable-tuner:closed-groups';
 
-function readClosed(): Record<string, boolean> {
-    try {
-        return JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '{}') as Record<string, boolean>;
-    } catch {
-        return {};
-    }
-}
-
-/** The id the jump list scrolls to; also what makes each group linkable. */
-function groupDomId(id: string): string {
-    return `param-group-${id}`;
-}
-
 function ParamRow({
     param,
     value,
@@ -245,11 +233,7 @@ export function ParamsPanel({
     const { t } = useI18n();
     const [presets, setPresets] = useState<PresetStore>(readPresets);
     const [query, setQuery] = useState('');
-    // Remembered across reloads: which groups a producer keeps shut is a
-    // working preference, and losing it on every refresh is why the panel
-    // always opens at seven screens.
-    const [closed, setClosed] = useState<Record<string, boolean>>(readClosed);
-    useEffect(() => localStorage.setItem(CLOSED_KEY, JSON.stringify(closed)), [closed]);
+    const groups = useClosedGroups(CLOSED_KEY);
 
     // Categories are presentational only, so their order is the schema's order — never sorted.
     const sections = useMemo(() => sectionsOf(schema), [schema]);
@@ -263,10 +247,10 @@ export function ParamsPanel({
     );
 
     useEffect(() => {
-        const initial: Record<string, boolean> = {};
-        for (const section of sections) if (section.collapsed) initial[section.id] = true;
-        setClosed(initial);
-    }, [sections]);
+        const hints: Record<string, boolean> = {};
+        for (const section of sections) if (section.collapsed) hints[section.id] = true;
+        groups.seed(hints);
+    }, [sections, groups.seed]);
 
     const hasParams = editableSections.some((section) => section.params.length > 0);
     const flat = isFlat(editableSections);
@@ -343,42 +327,15 @@ export function ParamsPanel({
                 </button>
             </div>
 
-            {!flat && editableSections.length > 1 && (
-                <div className="panel__tools">
-                    <select
-                        className="control"
-                        aria-label={t('params.jumpLabel')}
-                        value=""
-                        onChange={(event) => {
-                            const id = event.target.value;
-                            if (!id) return;
-                            // Opened before the scroll: jumping to a shut group
-                            // and landing on a closed header is a dead end.
-                            setClosed((prev) => ({ ...prev, [id]: false }));
-                            requestAnimationFrame(() =>
-                                document.getElementById(groupDomId(id))?.scrollIntoView({ block: 'start' }),
-                            );
-                        }}
-                    >
-                        <option value="">{t('params.jumpTo')}</option>
-                        {editableSections.map((section) => (
-                            <option key={section.id} value={section.id}>
-                                {section.title} ({sections.find((item) => item.id === section.id)?.params.length ?? 0})
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        className="control"
-                        onClick={() =>
-                            setClosed(Object.fromEntries(editableSections.map((section) => [section.id, true])))
-                        }
-                    >
-                        {t('params.collapseAll')}
-                    </button>
-                    <button className="control" onClick={() => setClosed({})}>
-                        {t('params.expandAll')}
-                    </button>
-                </div>
+            {!flat && (
+                <GroupNav
+                    groups={editableSections}
+                    countOf={(group) => sections.find((item) => item.id === group.id)?.params.length ?? 0}
+                    domIdPrefix="param"
+                    onOpen={groups.open}
+                    onCollapseAll={() => groups.collapseAll(editableSections)}
+                    onExpandAll={groups.expandAll}
+                />
             )}
 
             {Object.keys(presets).length > 0 && (
@@ -425,18 +382,17 @@ export function ParamsPanel({
 
                 if (flat) return <div key={section.id}>{rows}</div>;
 
-                const isClosed = Boolean(closed[section.id]) && !query;
+                // A search overrides the collapse: a match nobody can see is worse
+                // than a group they shut on purpose being open for a moment.
+                const isClosed = Boolean(groups.closed[section.id]) && !query;
                 return (
-                    <section className="section" id={groupDomId(section.id)} key={section.id}>
-                        <button
-                            className="section__head"
-                            aria-expanded={!isClosed}
-                            onClick={() => setClosed((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
-                        >
-                            <span className={isClosed ? 'section__arrow' : 'section__arrow is-open'}>▸</span>
-                            <span className="section__title">{section.title}</span>
-                            <span className="section__count">{total}</span>
-                        </button>
+                    <section className="section" id={groupDomId('param', section.id)} key={section.id}>
+                        <GroupHead
+                            title={section.title}
+                            count={total}
+                            closed={isClosed}
+                            onToggle={() => groups.toggle(section.id)}
+                        />
                         {!isClosed && (
                             <div className="section__body">
                                 {section.description && <SectionNote text={section.description} t={t} />}

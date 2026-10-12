@@ -6,8 +6,13 @@
     --bg-3: #ebebf0;
     --line: #d4d4d9;
     --text: #1c1c1e;
-    --muted: #6e6e73;
+    --muted: #6a6a6f;
     --accent: #0071e3;
+    /* The accent as a fill with --on-accent text on it. Separate from --accent
+       because that one also has to read as text and as a 2px outline, and in
+       dark mode one value cannot do both: #0a84ff is right against #1c1c1e and
+       leaves white on it at 3.65:1, under AA. */
+    --accent-fill: #0071e3;
     --on-accent: #ffffff;
     --ok: #1a7f37;
     --warn: #9a5b00;
@@ -31,6 +36,7 @@
         --text: #f2f2f7;
         --muted: #98989d;
         --accent: #0a84ff;
+        --accent-fill: #0072ed;
         --on-accent: #ffffff;
         --ok: #30d158;
         --warn: #ff9f0a;
@@ -53,6 +59,7 @@
     --text: #f2f2f7;
     --muted: #98989d;
     --accent: #0a84ff;
+    --accent-fill: #0072ed;
     --on-accent: #ffffff;
     --ok: #30d158;
     --warn: #ff9f0a;
@@ -185,8 +192,8 @@ code {
 }
 
 .control--primary {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
     color: var(--on-accent);
     font-weight: 600;
 }
@@ -267,7 +274,7 @@ select.control--wide {
 }
 
 .seg__btn.is-on {
-    background: var(--accent);
+    background: var(--accent-fill);
     color: var(--on-accent);
 }
 

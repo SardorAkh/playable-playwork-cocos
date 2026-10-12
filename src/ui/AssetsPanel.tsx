@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
 import { SectionNote } from './SectionNote';
+import { GroupHead, GroupNav, groupDomId, useClosedGroups } from './groupNav';
 import type { Translate } from '../i18n';
 import { PROBE_BYTES, formatDuration, probeMedia } from '../core/media';
 import type { MediaMeta } from '../core/media';
@@ -318,10 +319,13 @@ function LockedAssetRow({ param, t }: { param: TuningParam; t: Translate }) {
     );
 }
 
+const CLOSED_ASSETS_KEY = 'playable-tuner:closed-asset-groups';
+
 export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownload }: Props) {
     const { t } = useI18n();
     const [filter, setFilter] = useState('');
     const [showAll, setShowAll] = useState(false);
+    const groups = useClosedGroups(CLOSED_ASSETS_KEY);
     const vfs = build.vfs;
 
     const sections = useMemo(
@@ -350,6 +354,7 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
     if (!vfs) return <div className="panel__empty">{t('assets.noVfs')}</div>;
 
     const current = (path: string) => overrides[path] ?? vfs[path];
+    const filled = sections.filter((section) => section.params.length > 0);
 
     const rowsFor = (params: TuningParam[]) =>
         params.map((param) => {
@@ -386,20 +391,35 @@ export function AssetsPanel({ build, overrides, swaps, onSwap, onRevert, onDownl
             ) : flat ? (
                 rowsFor(sections.flatMap((section) => section.params))
             ) : (
-                sections
-                    .filter((section) => section.params.length > 0)
-                    .map((section) => (
-                        <section className="section" key={section.id}>
-                            <div className="section__head section__head--static">
-                                <span className="section__title">{section.title}</span>
-                                <span className="section__count">{section.params.length}</span>
-                            </div>
-                            <div className="section__body">
-                                {section.description && <SectionNote text={section.description} t={t} />}
-                                {rowsFor(section.params)}
-                            </div>
-                        </section>
-                    ))
+                <>
+                    <GroupNav
+                        groups={filled}
+                        countOf={(group) => filled.find((item) => item.id === group.id)?.params.length ?? 0}
+                        domIdPrefix="asset"
+                        onOpen={groups.open}
+                        onCollapseAll={() => groups.collapseAll(filled)}
+                        onExpandAll={groups.expandAll}
+                    />
+                    {filled.map((section) => {
+                        const isClosed = Boolean(groups.closed[section.id]);
+                        return (
+                            <section className="section" id={groupDomId('asset', section.id)} key={section.id}>
+                                <GroupHead
+                                    title={section.title}
+                                    count={section.params.length}
+                                    closed={isClosed}
+                                    onToggle={() => groups.toggle(section.id)}
+                                />
+                                {!isClosed && (
+                                    <div className="section__body">
+                                        {section.description && <SectionNote text={section.description} t={t} />}
+                                        {rowsFor(section.params)}
+                                    </div>
+                                )}
+                            </section>
+                        );
+                    })}
+                </>
             )}
 
             <div className="panel__tools">

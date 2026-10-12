@@ -42,7 +42,16 @@ export function Splitter({ width, min, max, preferred, onResize }: SplitterProps
 
     const onPointerMove = useCallback(
         (event: React.PointerEvent<HTMLDivElement>) => {
+            // `buttons` is the authority, not the flag: if a pointerup is ever
+            // missed — the pointer leaves the window, the tab loses focus mid
+            // drag — the flag stays true and every later move over the handle
+            // silently resizes the panel. Asking whether a button is actually
+            // down makes a lost release harmless.
             if (!dragging.current) return;
+            if (event.buttons === 0) {
+                dragging.current = false;
+                return;
+            }
             event.preventDefault();
             onResize(clamp(window.innerWidth - event.clientX));
         },
@@ -87,6 +96,7 @@ export function Splitter({ width, min, max, preferred, onResize }: SplitterProps
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
+            onLostPointerCapture={() => { dragging.current = false; }}
             onDoubleClick={() => onResize(preferred)}
             onKeyDown={onKeyDown}
         >
