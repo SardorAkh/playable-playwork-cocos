@@ -11,7 +11,13 @@ import { isAssetParam, isFlat, isSwappable, matchesQuery, matchesSection, sectio
 import { formatDuration, probeMedia } from '../src/core/media.ts';
 import { entryByteLength, entryBytes, entryDataUrl, entryHead, entryText, isPackedEntry, isUnencodedEntry, withBytes } from '../src/core/vfs.ts';
 import { escapeForScript, unescapeFromScript } from '../src/core/text.ts';
-import { hasUnencodedPayload, isLegacyPayload, lacksFontInterception, repackLegacyPayload } from '../src/core/repack.ts';
+import {
+    hasUnencodedPayload,
+    isLegacyPayload,
+    lacksFontInterception,
+    repackLegacyPayload,
+    resolvesAgainstLocation,
+} from '../src/core/repack.ts';
 import {
     DEFAULT_ORIENTATION_SUFFIX,
     ORIENTATIONS,
@@ -141,6 +147,22 @@ const legacyHtml = [
 check('a legacy payload is recognised', isLegacyPayload(legacyHtml));
 check('and reported as not base64', hasUnencodedPayload(legacyHtml));
 check('a runtime without the font hook is flagged', lacksFontInterception(legacyHtml));
+
+// A runtime that looks its own files up by location.href finds none of them in
+// an <iframe srcdoc>, which is how AppLovin previews a creative. The resolver
+// itself is the marker, so a document that resolves nothing — the demo build
+// serves itself straight out of the payload — is not accused of it.
+const resolverHtml = (resolver: string) =>
+    [
+        '<!doctype html><html><head>',
+        '<script>window.__PLAYABLE_FS__ = ' + escapeForScript(JSON.stringify(legacyPayload)) + ';</script>',
+        '<script>var byBasename = {}; ' + resolver + '</script>',
+        '</head><body></body></html>',
+    ].join('\n');
+
+check('a runtime resolving off the location is flagged', resolvesAgainstLocation(resolverHtml('var baseDir = location.href;')));
+check('a runtime reading the document base is not', !resolvesAgainstLocation(resolverHtml('var baseDir = directoryOf(documentBase());')));
+check('a build with no resolver at all is not', !resolvesAgainstLocation(legacyHtml));
 
 const repacked = repackLegacyPayload(legacyHtml);
 check('the repack shrinks the document', repacked.length < legacyHtml.length, [legacyHtml.length, repacked.length]);

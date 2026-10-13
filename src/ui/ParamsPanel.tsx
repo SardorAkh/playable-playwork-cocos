@@ -4,6 +4,7 @@ import type { Translate } from '../i18n';
 import { isAssetParam, isFlat, matchesQuery, matchesSection, sectionsOf } from '../core/schema';
 import type { Section } from '../core/schema';
 import { SectionNote } from './SectionNote';
+import { GroupHead, GroupNav, groupDomId, useClosedGroups } from './groupNav';
 import type { TuningParam, TuningSchema, TuningValues, ValueCheck } from '../core/types';
 
 interface Props {
@@ -173,6 +174,16 @@ function CheckReport({ check, t }: { check: ValueCheck; t: Translate }) {
     );
 }
 
+/**
+ * Types whose control is small enough to sit beside its label. A label above a
+ * checkbox costs 59px of a panel that already scrolls for seven screens, and
+ * reads no better for it. Text, JSON and asset slots keep the full width,
+ * because there the input is the thing that needs the room.
+ */
+const INLINE_TYPES = new Set(['boolean', 'number', 'select', 'color']);
+
+const CLOSED_KEY = 'playable-tuner:closed-groups';
+
 function ParamRow({
     param,
     value,
@@ -193,7 +204,7 @@ function ParamRow({
     const checkable = onCheck && isLongForm(param);
 
     return (
-        <div className="field">
+        <div className={INLINE_TYPES.has(param.type) ? 'field field--inline' : 'field'}>
             <div className="field__head">
                 <span className="field__label">{param.label ?? param.key}</span>
                 {param.live && <span className="pill pill--live">{t('params.live')}</span>}
@@ -222,7 +233,7 @@ export function ParamsPanel({
     const { t } = useI18n();
     const [presets, setPresets] = useState<PresetStore>(readPresets);
     const [query, setQuery] = useState('');
-    const [closed, setClosed] = useState<Record<string, boolean>>({});
+    const groups = useClosedGroups(CLOSED_KEY);
 
     // Categories are presentational only, so their order is the schema's order — never sorted.
     const sections = useMemo(() => sectionsOf(schema), [schema]);
@@ -236,10 +247,10 @@ export function ParamsPanel({
     );
 
     useEffect(() => {
-        const initial: Record<string, boolean> = {};
-        for (const section of sections) if (section.collapsed) initial[section.id] = true;
-        setClosed(initial);
-    }, [sections]);
+        const hints: Record<string, boolean> = {};
+        for (const section of sections) if (section.collapsed) hints[section.id] = true;
+        groups.seed(hints);
+    }, [sections, groups.seed]);
 
     const hasParams = editableSections.some((section) => section.params.length > 0);
     const flat = isFlat(editableSections);
@@ -285,6 +296,27 @@ export function ParamsPanel({
 
     return (
         <div className="panel__body">
+            {/* The search is what gets used on every visit, so it comes first; the
+                navigation sits with it because both are about finding a parameter.
+                Presets and the import/export machinery are occasional and go last. */}
+            {!flat && (
+                <input
+                    className="control control--wide"
+                    placeholder={t('params.search')}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                />
+            )}
+            {!flat && (
+                <GroupNav
+                    groups={editableSections}
+                    countOf={(group) => sections.find((item) => item.id === group.id)?.params.length ?? 0}
+                    domIdPrefix="param"
+                    onOpen={groups.open}
+                    onCollapseAll={() => groups.collapseAll(editableSections)}
+                    onExpandAll={groups.expandAll}
+                />
+            )}
             <div className="panel__tools">
                 <select
                     className="control"
@@ -315,7 +347,6 @@ export function ParamsPanel({
                     {t('params.reset')}
                 </button>
             </div>
-
             {Object.keys(presets).length > 0 && (
                 <div className="chips">
                     {Object.keys(presets).map((name) => (
@@ -329,14 +360,8 @@ export function ParamsPanel({
                 </div>
             )}
 
-            {!flat && (
-                <input
-                    className="control control--wide"
-                    placeholder={t('params.search')}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                />
-            )}
+
+
 
             {editableSections.map((section) => {
                 const visible = section.params.filter((param) => matchesQuery(param, section, query));
@@ -360,17 +385,17 @@ export function ParamsPanel({
 
                 if (flat) return <div key={section.id}>{rows}</div>;
 
-                const isClosed = Boolean(closed[section.id]) && !query;
+                // A search overrides the collapse: a match nobody can see is worse
+                // than a group they shut on purpose being open for a moment.
+                const isClosed = Boolean(groups.closed[section.id]) && !query;
                 return (
-                    <section className="section" key={section.id}>
-                        <button
-                            className="section__head"
-                            onClick={() => setClosed((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
-                        >
-                            <span className={isClosed ? 'section__arrow' : 'section__arrow is-open'}>▸</span>
-                            <span className="section__title">{section.title}</span>
-                            <span className="section__count">{total}</span>
-                        </button>
+                    <section className="section" id={groupDomId('param', section.id)} key={section.id}>
+                        <GroupHead
+                            title={section.title}
+                            count={total}
+                            closed={isClosed}
+                            onToggle={() => groups.toggle(section.id)}
+                        />
                         {!isClosed && (
                             <div className="section__body">
                                 {section.description && <SectionNote text={section.description} t={t} />}

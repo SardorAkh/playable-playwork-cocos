@@ -6,8 +6,17 @@
     --bg-3: #ebebf0;
     --line: #d4d4d9;
     --text: #1c1c1e;
-    --muted: #6e6e73;
-    --accent: #0071e3;
+    --muted: #6a6a6f;
+    /* Carries text — a ghost button's label, a link, a note's action — so it has
+       to clear AA on all three surfaces it can land on, not just the card.
+       #0071e3 was 4.7 on white but 4.21 on the recessed panel and 3.95 on a
+       group header. */
+    --accent: #0066d8;
+    /* The accent as a fill with --on-accent text on it. A separate token
+       because the two pull opposite ways: a fill wants to be dark enough for
+       white text, a label wants to be dark enough against a light surface, and
+       in dark mode they go in opposite directions entirely. */
+    --accent-fill: #0071e3;
     --on-accent: #ffffff;
     --ok: #1a7f37;
     --warn: #9a5b00;
@@ -19,6 +28,19 @@
     --shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
     --on-warn: #ffffff;
     --radius: 9px;
+
+    /* A type scale, because there was not one: the whole interface sat between
+       10px and 13px, so a group title was one pixel away from a hint and
+       nothing could be told apart by size. Each step is a role, not a number:
+       2xs is reference text you scan (a parameter key), xs is metadata, sm is
+       a label or a control, md is prose you read, lg is a group title. */
+    --text-2xs: 11px;
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-md: 14px;
+    --text-lg: 15px;
+    --text-xl: 17px;
+
     color-scheme: light;
 }
 
@@ -30,7 +52,8 @@
         --line: #38383a;
         --text: #f2f2f7;
         --muted: #98989d;
-        --accent: #0a84ff;
+        --accent: #1596ff;
+        --accent-fill: #0072ed;
         --on-accent: #ffffff;
         --ok: #30d158;
         --warn: #ff9f0a;
@@ -52,7 +75,8 @@
     --line: #38383a;
     --text: #f2f2f7;
     --muted: #98989d;
-    --accent: #0a84ff;
+    --accent: #1596ff;
+    --accent-fill: #0072ed;
     --on-accent: #ffffff;
     --ok: #30d158;
     --warn: #ff9f0a;
@@ -80,7 +104,30 @@ body,
 body {
     background: var(--bg);
     color: var(--text);
-    font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    /* system-ui first: it is the standard keyword now, and -apple-system stays
+       behind it for older Safari. On a Mac both land on SF Pro, which is what
+       this interface was already using — it just was not getting the two
+       settings that make SF read the way it does in Apple's own UI. */
+    font: var(--text-md)/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    /* macOS browsers default to subpixel antialiasing, which thickens small
+       text and muddies it. Grayscale antialiasing is what Apple ships, and at
+       12-13px it is the difference between crisp and smeared. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Digits that keep their column. A tuner is mostly numbers that change under
+   the cursor — a slider readout, a file size, a group count — and with
+   proportional figures each change shifts the ones next to it. */
+input,
+select,
+code,
+.field__key,
+.section__count,
+.stage__status,
+.asset__size,
+.chip {
+    font-variant-numeric: tabular-nums;
 }
 
 body.resizing {
@@ -89,7 +136,7 @@ body.resizing {
 }
 
 code {
-    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font: var(--text-xs)/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .app {
@@ -135,7 +182,7 @@ code {
 
 .top__file span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .top__file--muted {
@@ -151,7 +198,7 @@ code {
 
 .banner {
     padding: 8px 16px;
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .banner--error {
@@ -170,7 +217,7 @@ code {
     border-radius: var(--radius);
     padding: 5px 10px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -179,14 +226,75 @@ code {
     border-color: color-mix(in srgb, var(--muted) 55%, transparent);
 }
 
+/* ---------- receiving vs acting ----------
+   `.control` was worn by the fields and the buttons alike: 55 elements on one
+   screen with the same border, fill and radius, so a thing you type into and a
+   thing you press were indistinguishable. The split is by context rather than
+   by new classes, because that is also the honest distinction — inside a row a
+   control takes a value, in a toolbar it does something. */
+
+/* A field receives. Recessed onto the card surface, with the inset edge that
+   says text goes in here. */
+.field input.control,
+.field textarea.control,
+.field select.control,
+.panel__body > input.control {
+    background: var(--bg-2);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 4%);
+    cursor: text;
+}
+
+.field select.control,
+.panel__body > select.control {
+    cursor: pointer;
+}
+
+.field input.control:focus,
+.field textarea.control:focus,
+.panel__body > input.control:focus {
+    border-color: var(--accent);
+}
+
+/* An action is quiet until it is reached for. Of the eight controls in these
+   toolbars only the search is used constantly; the rest are occasional, and
+   eight equally loud pills above the one thing people use is the noise. */
+.panel__tools .control,
+.stage__bar .control {
+    background: transparent;
+    border-color: transparent;
+    color: var(--accent);
+}
+
+.panel__tools .control:hover:not(:disabled),
+.stage__bar .control:hover:not(:disabled) {
+    background: var(--chip);
+    border-color: transparent;
+}
+
+/* Except the one that is primary: exactly one filled button per context is what
+   makes it findable. */
+.panel__tools .control--primary,
+.stage__bar .control--primary {
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
+    color: var(--on-accent);
+}
+
+/* A select in a toolbar is a menu, so it keeps a hairline to show it opens. */
+.panel__tools select.control,
+.stage__bar select.control {
+    border-color: var(--line);
+    color: var(--text);
+}
+
 .control:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 
 .control--primary {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
     color: var(--on-accent);
     font-weight: 600;
 }
@@ -199,7 +307,7 @@ code {
 
 .control--mini {
     padding: 5px 6px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .control--num {
@@ -246,7 +354,7 @@ select.control--wide {
 }
 
 .check--tiny {
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .seg {
@@ -262,25 +370,25 @@ select.control--wide {
     border: 0;
     padding: 6px 12px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     cursor: pointer;
 }
 
 .seg__btn.is-on {
-    background: var(--accent);
+    background: var(--accent-fill);
     color: var(--on-accent);
 }
 
 .seg--mini .seg__btn {
     padding: 5px 8px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .pill {
     display: inline-block;
     padding: 1px 6px;
     border-radius: 999px;
-    font-size: 10px;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.4px;
 }
@@ -301,13 +409,68 @@ select.control--wide {
     margin-left: 6px;
 }
 
+/* ---------- keyboard focus ----------
+   There was no focus styling anywhere, and most controls here are custom
+   buttons with `border: 0`, which leaves the browser default almost invisible
+   against the panel. One rule covers every interactive element; :focus-visible
+   keeps it off mouse clicks. */
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+}
+
 /* ---------- layout ---------- */
 
 .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 420px;
+    /* The handle sets --panel-w; the stage takes what is left. */
+    grid-template-columns: minmax(0, 1fr) auto var(--panel-w, 560px);
     flex: 1;
     min-height: 0;
+}
+
+/* ---------- splitter ---------- */
+
+.splitter {
+    position: relative;
+    width: 7px;
+    cursor: col-resize;
+    background: var(--bg-2);
+    border-left: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+}
+
+/* A 7px target is a thin thing to hit with a mouse, so the hit area reaches
+   past the visible line on both sides without widening the column. */
+.splitter::before {
+    content: '';
+    position: absolute;
+    inset: 0 -5px;
+}
+
+.splitter__grip {
+    width: 3px;
+    height: 28px;
+    border-radius: 2px;
+    background: var(--line);
+    transition: background 0.12s, height 0.12s;
+}
+
+.splitter:hover .splitter__grip,
+.splitter:focus-visible .splitter__grip {
+    background: var(--accent);
+    height: 48px;
+}
+
+.splitter:active .splitter__grip {
+    background: var(--accent);
+    height: 100%;
+    border-radius: 0;
 }
 
 .stage {
@@ -359,7 +522,7 @@ select.control--wide {
     border-top: 1px solid var(--line);
     background: var(--bg-2);
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 /* ---------- device frame ---------- */
@@ -579,7 +742,7 @@ select.control--wide {
     color: var(--muted);
     padding: 10px 4px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     cursor: pointer;
 }
 
@@ -592,6 +755,13 @@ select.control--wide {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    /* So the rows can answer to the panel's width rather than the window's —
+       the panel is resizable, and the window tells them nothing. */
+    container-type: inline-size;
+    /* Recessed, so the group cards above it read as cards. They used to be
+       white on white, separated by a hairline and nothing else. No new colour
+       is involved: the page grey was already in the palette. */
+    background: var(--bg);
 }
 
 .panel__body {
@@ -612,18 +782,20 @@ select.control--wide {
 .panel__note {
     padding: 16px 12px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .panel__note {
-    background: var(--bg-3);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
-    padding: 10px;
+    padding: 10px 12px;
+    line-height: 1.55;
 }
 
 .panel__hint {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .chips {
@@ -640,7 +812,7 @@ select.control--wide {
     border: 1px solid var(--line);
     border-radius: 999px;
     padding: 2px 4px 2px 10px;
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .chip button {
@@ -648,7 +820,7 @@ select.control--wide {
     border: 0;
     color: var(--muted);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--text-md);
     line-height: 1;
     padding: 0 4px;
 }
@@ -673,9 +845,63 @@ select.control--wide {
     font-weight: 600;
 }
 
+/* The parameter key is an identifier a producer quotes to a developer or
+   pastes into a prompt — reference, not content. Set as plain grey text beside
+   the label it competed with it for the same reading. A quiet chip separates
+   the two by kind rather than by contrast, so it stays legible without
+   pulling the eye. */
+/* Right-aligned in the label column, so every key on the panel lines up in one
+   rail — alignment separates it from the label for free, where a chip
+   background cost 46 filled rectangles on a single screen. Monospace and the
+   smallest step say the rest: this is reference you scan for, not prose. */
 .field__key {
-    color: var(--muted);
     margin-left: auto;
+    flex: none;
+    padding-right: 2px;
+    font-size: var(--text-2xs);
+    color: var(--muted);
+}
+
+/* Label and control on one line, with the parameter key right-aligned in the
+   label column so it forms a rail between the two. The control column is given
+   slightly more than half: a slider with its number box beside it is the
+   widest thing that lands here. */
+.field--inline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: center;
+    column-gap: 12px;
+    gap: 0;
+    padding-bottom: 8px;
+}
+
+.field--inline > .field__head {
+    min-width: 0;
+}
+
+.field--inline .field__label {
+    overflow-wrap: anywhere;
+}
+
+/* A note or a check result belongs under both columns, not beside the label. */
+.field--inline > .field__note,
+.field--inline > .field__check {
+    grid-column: 1 / -1;
+}
+
+@container (max-width: 520px) {
+    /* A 250px label column breaks "Play pasted boards in a random order" into
+       three lines, which is worse than the stack the inline row replaced. */
+    .field--inline {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: stretch;
+    }
+
+    .field--inline .field__key {
+        font-size: var(--text-2xs);
+    }
 }
 
 .field__input--row {
@@ -703,7 +929,7 @@ select.control--wide {
 
 .sources__label {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
     margin-right: 2px;
 }
 
@@ -715,7 +941,7 @@ select.control--wide {
 .chip em {
     font-style: normal;
     color: var(--muted);
-    font-size: 10px;
+    font-size: var(--text-xs);
 }
 
 .group {
@@ -761,7 +987,7 @@ select.control--wide {
     align-items: center;
     gap: 6px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .target__row {
@@ -772,7 +998,7 @@ select.control--wide {
 }
 
 .target__note {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }
 
@@ -789,7 +1015,7 @@ select.control--wide {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--muted);
     min-width: 0;
 }
@@ -839,6 +1065,7 @@ select.control--wide {
     border: 1px solid var(--line);
     border-radius: var(--radius);
     overflow: hidden;
+    background: var(--bg-2);
 }
 
 .section__head {
@@ -854,6 +1081,31 @@ select.control--wide {
     font: inherit;
     text-align: left;
     cursor: pointer;
+    /* Held at the top of the panel while its own parameters scroll past, so a
+       group eight rows deep still says which group it is. */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    /* A hairline under it while stuck, so the pinned title reads as a lid over
+       the rows rather than floating in them. */
+    box-shadow: inset 0 -1px 0 var(--line);
+}
+
+/* Sticky needs the section to stop clipping it; the rounded corners move to
+   the header and the last row instead. */
+.section {
+    overflow: visible;
+}
+
+.section__head:first-child {
+    border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+}
+
+/* The card clips nothing (sticky needs that), so its own top corners have to
+   be drawn by the header, and the card needs a hair of inset at the top or the
+   pinned header leaves a sliver of card showing above it. */
+.section {
+    padding-top: 0;
 }
 
 .section__head--static {
@@ -862,6 +1114,11 @@ select.control--wide {
 
 .section__head:hover:not(.section__head--static) {
     border-bottom-color: var(--line);
+    background: var(--chip);
+}
+
+.section__head:hover:not(.section__head--static) .section__arrow {
+    color: var(--accent);
 }
 
 .section__arrow {
@@ -874,20 +1131,27 @@ select.control--wide {
 }
 
 .section__title {
+    font-size: var(--text-lg);
     font-weight: 600;
+    /* SF opens up as it scales, so the larger steps need pulling in slightly;
+       below 15px it needs none. */
+    letter-spacing: -0.012em;
 }
 
 .section__count {
     margin-left: auto;
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
+/* A 12px gap between rows that are themselves only 37px tall is a third of the
+   panel spent on air; each row already carries its own bottom rule. Full-width
+   rows keep their own padding-bottom, so they still breathe. */
 .section__body {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 12px 10px;
+    gap: 4px;
+    padding: 10px;
 }
 
 .section__body > .field:last-child,
@@ -898,12 +1162,12 @@ select.control--wide {
 
 .section__note {
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .section__empty {
     color: var(--warn);
-    font-size: 11px;
+    font-size: var(--text-xs);
 }
 
 .asset--locked {
@@ -937,7 +1201,7 @@ select.control--wide {
 }
 
 .asset__mime {
-    font-size: 10px;
+    font-size: var(--text-xs);
     color: var(--muted);
     text-align: center;
     padding: 4px;
@@ -963,17 +1227,17 @@ select.control--wide {
 }
 
 .asset__size {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }
 
 .asset__slot {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }
 
 .asset__warn {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--warn);
 }
 
@@ -1035,12 +1299,12 @@ select.control--wide {
     padding: 8px 10px;
     border-radius: var(--radius);
     background: var(--bg-3);
-    font-size: 12px;
+    font-size: var(--text-sm);
 }
 
 .issue__badge {
     flex: none;
-    font-size: 10px;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     padding: 1px 6px;
     border-radius: 999px;
@@ -1161,7 +1425,7 @@ select.control--wide {
     place-items: center;
     background: var(--veil);
     border: 2px dashed var(--accent);
-    font-size: 16px;
+    font-size: var(--text-xl);
     pointer-events: none;
 }
 
@@ -1169,7 +1433,7 @@ select.control--wide {
 .control--area {
     min-height: 180px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.5;
     resize: vertical;
     white-space: pre;
@@ -1177,10 +1441,33 @@ select.control--wide {
     overflow-x: auto;
 }
 
+/* SectionNote and the value check ask for .btn and .btn--ghost, and neither
+   existed — only .btn--tiny did. Those five buttons were rendering in the
+   browser's default chrome (2px outset black, square corners) in the middle of
+   a panel where everything else is a rounded control. A ghost button is the
+   quietest affordance there is: no fill, no border until you reach for it. */
+.btn {
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: var(--chip);
+}
+
+.btn--ghost {
+    color: var(--accent);
+}
+
 .btn--tiny {
     margin-left: auto;
-    padding: 2px 10px;
-    font-size: 11px;
+    padding: 2px 8px;
+    font-size: var(--text-xs);
 }
 
 /* What the build said about a value. */
@@ -1189,7 +1476,7 @@ select.control--wide {
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid var(--line);
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.45;
 }
 
@@ -1207,7 +1494,7 @@ select.control--wide {
 
 .field__note {
     margin: 8px 0 0;
-    font-size: 12px;
+    font-size: var(--text-sm);
     opacity: 0.75;
 }
 
@@ -1231,7 +1518,7 @@ select.control--wide {
     white-space: pre-wrap;
     word-break: break-word;
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.5;
     /* Fades out rather than cutting, so it reads as folded and not as broken. */
     mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
