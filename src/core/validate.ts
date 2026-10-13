@@ -1,5 +1,5 @@
 import { entryText, isUnencodedEntry } from './vfs';
-import { hasUnencodedPayload, lacksFontInterception } from './repack';
+import { hasUnencodedPayload, lacksFontInterception, resolvesAgainstLocation } from './repack';
 import {
     CTA_CALLS,
     META_REFRESH,
@@ -161,6 +161,13 @@ export function validate(input: ValidateInput): ValidationIssue[] {
     // The repack cannot reach what is baked into the build's own runtime.
     if (lacksFontInterception(html)) {
         issues.push({ severity: 'warning', code: 'legacy-fonts' });
+    }
+
+    // An error where it is known to be fatal, a warning where it depends on how
+    // the container mounts the document — AppLovin's preview is a srcdoc frame,
+    // and there the build cannot find a single one of its own files.
+    if (resolvesAgainstLocation(html)) {
+        issues.push({ severity: network.id === 'applovin' ? 'error' : 'warning', code: 'location-base' });
     }
 
     if (build.hasTuningBlock && !hasIntactMarkers(html)) {

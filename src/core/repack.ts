@@ -29,6 +29,16 @@ const PACKED_MARKER = '"e":"z"';
 /** Present only in runtimes that rewrite injected @font-face url() to data uris. */
 const FONT_INTERCEPTION = 'inlineStyleNode';
 
+/**
+ * Present in every builder runtime written so far, and the one way to tell a
+ * build that resolves urls at all from one that only reads the payload — a
+ * hand-made demo that serves itself has nothing to be wrong about.
+ */
+const URL_RESOLUTION = 'byBasename';
+
+/** Present only in runtimes that resolve against the document's base, not its location. */
+const DOCUMENT_BASE = 'documentBase()';
+
 interface PayloadRegion {
     /** Where the enclosing <script> tag starts. */
     tagStart: number;
@@ -74,6 +84,20 @@ export function hasUnencodedPayload(html: string): boolean {
  */
 export function lacksFontInterception(html: string): boolean {
     return payloadRegion(html) !== null && !html.includes(FONT_INTERCEPTION);
+}
+
+/**
+ * Whether the build's runtime looks up its own files by `location.href` rather
+ * than by the document's base. The two agree on a web server and part company
+ * in an `<iframe srcdoc>`, where the location reads `about:srcdoc` while
+ * relative urls still resolve against the parent's url — which is exactly how
+ * AppLovin's preview mounts a creative. Nothing then matches the payload, the
+ * engine's first module leaves for the network, 404s, and the ad is a black
+ * screen. Like the font case this lives in the runtime, so no repack reaches
+ * it: only a rebuild does.
+ */
+export function resolvesAgainstLocation(html: string): boolean {
+    return payloadRegion(html) !== null && html.includes(URL_RESOLUTION) && !html.includes(DOCUMENT_BASE);
 }
 
 /**
