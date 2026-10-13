@@ -98,14 +98,18 @@ export const NETWORKS: NetworkProfile[] = [
         label: 'Mintegral',
         format: 'zip',
         maxBytes: 5 * MB,
-        ctaSymbol: 'mraid.open',
-        requiredSymbols: ['mraid.open'],
-        needsMraidTag: true,
+        // Not an MRAID container: the CTA is the container's own install(),
+        // and an mraid.js tag only earns a 404 its review tool reports as a
+        // code exception. mraid.open stays accepted for artifacts built
+        // before that was understood.
+        ctaSymbol: 'window.install',
+        requiredSymbols: ['window.install', 'mraid.open'],
+        needsMraidTag: false,
         allowsExternalRequests: false,
         allowedUrls: [],
         suffix: '_MINTEGRAL',
         folder: 'mintegral',
-        signaturesCheckedAt: CHECKED,
+        signaturesCheckedAt: '2026-10-13',
     },
     {
         id: 'google',
