@@ -84,8 +84,26 @@ function emptyExportSettings(): ExportSettings {
     };
 }
 
-function defaultsFrom(build: LoadedBuild, current: TuningValues): TuningValues {
-    const values: TuningValues = { ...build.values, ...current };
+/**
+ * What a build is a build *of*. A bundle's manifest names the app outright; everything else is
+ * identified by the parameters its schema declares, which is what the eight artifacts of one
+ * game have in common and what another game does not. A build without a schema answers for
+ * itself alone — there is nothing in it to carry anywhere.
+ */
+function identityOf(build: LoadedBuild): string {
+    if (build.manifest?.app) return `app:${build.manifest.app}`;
+    const keys = (build.schema?.params ?? []).map((param) => param.key).sort();
+    return keys.length > 0 ? `schema:${keys.join(',')}` : `file:${build.fileName}`;
+}
+
+/**
+ * Values for a build joining what is already on screen. The ones being edited win over the
+ * file's own, because the artifacts of one game are tuned together and those edits are the
+ * whole point. `fileWins` turns that around for a file that replaces the build it was loaded
+ * as: a rebuild carries its own values, and they are the newer answer.
+ */
+function defaultsFrom(build: LoadedBuild, current: TuningValues, fileWins = false): TuningValues {
+    const values: TuningValues = fileWins ? { ...current, ...build.values } : { ...build.values, ...current };
     for (const param of build.schema?.params ?? []) {
         if (param.default !== undefined && values[param.key] === undefined) values[param.key] = param.default;
     }
@@ -134,11 +152,14 @@ export default function App() {
     const [checkedAt, setCheckedAt] = useState<number | null>(null);
     const [tab, setTab] = useState<Tab>('params');
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [notice, setNotice] = useState<string | null>(null);
+    /** One line above the stage: `error` for something that went wrong, `info` for what changed. */
+    const [notice, setNotice] = useState<{ text: string; tone: 'info' | 'error' } | null>(null);
     const [dragging, setDragging] = useState(false);
 
     // Loading several builds in a row composes previews between renders, so the edits live in
     // refs and the state follows — reading them from a stale closure would lose values.
+    /** Mirrors `sources`, so a load can see what is already open without waiting for a render. */
+    const sourcesRef = useRef<Source[]>([]);
     const valuesRef = useRef<TuningValues>({});
     const overridesRef = useRef<VfsMap>({});
 
@@ -363,22 +384,50 @@ export default function App() {
                 const id = `source:${loaded.fileName}`;
                 const source: Source = { id, build: loaded, networkId: isBundle ? '' : network.id };
 
-                setSources((prev) => [...prev.filter((item) => item.build.fileName !== loaded.fileName), source]);
+                // Values, swapped assets and the export plan belong to one game. A file from a
+                // different one starts the session over instead of inheriting them: a text typed
+                // for the last playable reappearing inside this one is nobody's intention.
+                const open = sourcesRef.current;
+                const identity = identityOf(loaded);
+                const foreign = open.filter((item) => identityOf(item.build) !== identity);
+                const fresh = foreign.length > 0;
+                const rebuilt = open.some((item) => item.build.fileName === loaded.fileName);
+
+                sourcesRef.current = fresh
+                    ? [source]
+                    : [...open.filter((item) => item.build.fileName !== loaded.fileName), source];
+                setSources(sourcesRef.current);
                 setActiveId(id);
                 setChecks([]);
                 setCheckedAt(null);
                 setTab(loaded.schema ? 'params' : 'export');
 
-                const nextValues = setValues((prev) => defaultsFrom(loaded, prev));
-                setExportSettings((prev) => ({
-                    ...prev,
-                    baseName: prev.baseName === 'playable' ? suggestBaseName(loaded.fileName) : prev.baseName,
-                    networks: prev.networks.map((target) => {
-                        // A bundle can produce every network, so it claims the ones still unassigned.
-                        if (isBundle) return target.sourceId ? target : { ...target, enabled: true, sourceId: id };
-                        return target.networkId === network.id ? { ...target, enabled: true, sourceId: id } : target;
-                    }),
-                }));
+                if (fresh) {
+                    setOverrides(() => ({}));
+                    setSwaps({});
+                    setNotice({ tone: 'info', text: t('top.freshGame', { name: loaded.fileName }) });
+                } else {
+                    setNotice(null);
+                }
+
+                // A rebuild of the file that is already open brings its own values with it; an
+                // artifact joining the ones already loaded leaves the edits on screen alone.
+                const nextValues = setValues((prev) => defaultsFrom(loaded, fresh ? {} : prev, rebuilt));
+                setExportSettings((prev) => {
+                    const base = fresh ? emptyExportSettings() : prev;
+                    return {
+                        ...base,
+                        baseName:
+                            base.baseName === 'playable' ? suggestBaseName(loaded.fileName) : base.baseName,
+                        networks: base.networks.map((target) => {
+                            // A bundle can produce every network, so it claims the ones still unassigned.
+                            if (isBundle) return target.sourceId ? target : { ...target, enabled: true, sourceId: id };
+                            return target.networkId === network.id
+                                ? { ...target, enabled: true, sourceId: id }
+                                : target;
+                        }),
+                    };
+                });
 
                 pushEvent('tuner', 'build-loaded', {
                     name: loaded.fileName,
@@ -391,7 +440,7 @@ export default function App() {
                 setBusy(false);
             }
         },
-        [pushEvent, rebuildPreview, setValues],
+        [pushEvent, rebuildPreview, setOverrides, setValues, t],
     );
 
     const openFiles = useCallback(
@@ -403,7 +452,8 @@ export default function App() {
 
     const removeSource = useCallback(
         (id: string) => {
-            setSources((prev) => prev.filter((source) => source.id !== id));
+            sourcesRef.current = sourcesRef.current.filter((source) => source.id !== id);
+            setSources(sourcesRef.current);
             setExportSettings((prev) => ({
                 ...prev,
                 networks: prev.networks.map((target) =>
@@ -485,7 +535,7 @@ export default function App() {
             const slot = mediaKind(entry.t);
             const incoming = mediaKind(file.type) ?? mediaKind(extensionOf(file.name));
             if (slot && incoming !== slot) {
-                setNotice(t('assets.wrongKind', { name: file.name, kind: t(`assets.kind-${slot}`) }));
+                setNotice({ tone: 'error', text: t('assets.wrongKind', { name: file.name, kind: t(`assets.kind-${slot}`) }) });
                 return;
             }
 
@@ -545,7 +595,7 @@ export default function App() {
             (total, check) => total + check.issues.filter((issue) => issue.severity === 'error').length,
             0,
         );
-        setNotice(known > 0 ? t('top.exportedWithErrors', { count: known }) : null);
+        setNotice(known > 0 ? { tone: 'error', text: t('top.exportedWithErrors', { count: known }) } : null);
         setBusy(true);
         await new Promise((resolve) => setTimeout(resolve, 0));
         try {
@@ -698,7 +748,7 @@ export default function App() {
             )}
 
             {loadError && <div className="banner banner--error">{loadError}</div>}
-            {notice && <div className="banner banner--error">{notice}</div>}
+            {notice && <div className={`banner banner--${notice.tone}`}>{notice.text}</div>}
 
             <main className="layout" style={{ ['--panel-w' as string]: `${Math.round(panelShown)}px` }}>
                 <DevicePreview
