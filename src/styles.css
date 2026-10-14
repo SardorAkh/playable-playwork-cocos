@@ -207,6 +207,12 @@ code {
     border-bottom: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
 }
 
+.banner--info {
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-2));
+    color: var(--text);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 /* ---------- controls ---------- */
 
 .control {
