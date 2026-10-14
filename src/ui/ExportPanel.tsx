@@ -83,8 +83,9 @@ export function ExportPanel({ sources, settings, checks, busy, onChange, onValid
                                         onChange={(event) =>
                                             patchNetwork(target.networkId, {
                                                 enabled: event.target.checked,
-                                                // Ticking a network should just work: adopt the build shown in the picker.
-                                                sourceId: target.sourceId ?? usable[0]?.id ?? null,
+                                                // Ticking a network should just work: adopt the first build that fits,
+                                                // and never keep a source id that no longer names a loaded build.
+                                                sourceId: chosen?.id ?? usable[0]?.id ?? null,
                                             })
                                         }
                                     />
@@ -133,9 +134,12 @@ export function ExportPanel({ sources, settings, checks, busy, onChange, onValid
                                         {t('export.source')}
                                         <select
                                             className="control control--mini"
-                                            value={target.sourceId ?? usable[0]?.id ?? ''}
+                                            value={chosen?.id ?? ''}
                                             onChange={(event) => patchNetwork(target.networkId, { sourceId: event.target.value })}
                                         >
+                                            {/* Falling back to the first build here would show a source the export
+                                                plan does not have, so an unassigned row says so instead. */}
+                                            {!chosen && <option value="">{t('export.pickSource')}</option>}
                                             {usable.map((source) => (
                                                 <option key={source.id} value={source.id}>
                                                     {source.bundle ? `${source.fileName} · bundle` : source.fileName}

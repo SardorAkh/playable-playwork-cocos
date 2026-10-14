@@ -156,7 +156,6 @@ export default function App() {
 
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const eventId = useRef(0);
-    const sourceId = useRef(0);
     const deepLinkLoaded = useRef(false);
     /** Our own restart unloads the frame too — don't report that as a redirect attempt. */
     const reloadingUntil = useRef(0);
@@ -357,8 +356,11 @@ export default function App() {
                 const loaded = await loadBuild(file);
                 const isBundle = loaded.manifest !== null;
                 const network = guessNetwork(loaded.fileName, loaded.kind);
-                sourceId.current += 1;
-                const id = `source-${sourceId.current}`;
+                // The file name is the build's identity: loading a file again drops the build that
+                // held that name. Deriving the id from the name moves the export rows that point at
+                // it over to the rebuilt file, instead of leaving them on an id nothing answers to
+                // any more — ticked, source shown, silently never exported.
+                const id = `source:${loaded.fileName}`;
                 const source: Source = { id, build: loaded, networkId: isBundle ? '' : network.id };
 
                 setSources((prev) => [...prev.filter((item) => item.build.fileName !== loaded.fileName), source]);
