@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Playable Tuner">
+    <!-- PT, drawn as shapes rather than <text> so the mark does not depend on a
+         font being available where the favicon is rendered. The P's bowl is a
+         stroked path: a radius wider than the stroke keeps the counter open at
+         16px, where a filled letterform would close up into a blob. -->
+    <rect width="64" height="64" rx="14" fill="#111317" />
+    <g fill="#ffffff">
+        <rect x="9" y="17" width="8" height="30" rx="1" />
+        <path d="M17 21h3a7 7 0 0 1 0 14h-3" fill="none" stroke="#ffffff" stroke-width="8" />
+        <rect x="34" y="17" width="21" height="8" rx="1" />
+        <rect x="40.5" y="17" width="8" height="30" rx="1" />
+    </g>
+</svg>
