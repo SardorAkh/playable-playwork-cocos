@@ -240,39 +240,55 @@ code {
    control takes a value, in a toolbar it does something. */
 
 /* A field receives. Recessed onto the card surface, with the inset edge that
-   says text goes in here. */
-.field input.control,
-.field textarea.control,
-.field select.control,
-.panel__body > input.control {
-    background: var(--bg-2);
+   says text goes in here. Keyed on the element, not on where it sits: scoped
+   to `.field`, the export folder and suffix boxes kept the grey button fill
+   and read as something to press. */
+input.control,
+textarea.control {
+    background-color: var(--bg-2);
     box-shadow: inset 0 1px 2px rgb(0 0 0 / 4%);
     cursor: text;
 }
 
-.field select.control,
-.panel__body > select.control {
+/* A select is a menu, and has to say so. `appearance: none` above took the
+   native arrow away, which left a select on a white field indistinguishable
+   from a text box you could not type into. The arrow is two gradient
+   triangles rather than an SVG so it takes --muted in either theme. */
+select.control {
+    background-color: var(--bg-2);
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position:
+        right 14px center,
+        right 10px center;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+    padding-right: 26px;
     cursor: pointer;
 }
 
-.field input.control:focus,
-.field textarea.control:focus,
-.panel__body > input.control:focus {
+input.control:focus,
+textarea.control:focus,
+select.control:focus {
     border-color: var(--accent);
 }
 
 /* An action is quiet until it is reached for. Of the eight controls in these
    toolbars only the search is used constantly; the rest are occasional, and
-   eight equally loud pills above the one thing people use is the noise. */
-.panel__tools .control,
-.stage__bar .control {
+   eight equally loud pills above the one thing people use is the noise.
+   Fields and menus in the same toolbar keep their own look. The exclusion is
+   inside :where() so it adds no specificity: a bare :not(input) outranked
+   .control--primary below and took the fill, and the stale orange, off Restart. */
+.panel__tools .control:where(:not(input, select, textarea)),
+.stage__bar .control:where(:not(input, select, textarea)) {
     background: transparent;
     border-color: transparent;
     color: var(--accent);
 }
 
-.panel__tools .control:hover:not(:disabled),
-.stage__bar .control:hover:not(:disabled) {
+.panel__tools .control:where(:not(input, select, textarea, .control--primary)):hover:not(:disabled),
+.stage__bar .control:where(:not(input, select, textarea, .control--primary)):hover:not(:disabled) {
     background: var(--chip);
     border-color: transparent;
 }
@@ -284,13 +300,6 @@ code {
     background: var(--accent-fill);
     border-color: var(--accent-fill);
     color: var(--on-accent);
-}
-
-/* A select in a toolbar is a menu, so it keeps a hairline to show it opens. */
-.panel__tools select.control,
-.stage__bar select.control {
-    border-color: var(--line);
-    color: var(--text);
 }
 
 .control:disabled {
@@ -509,6 +518,13 @@ select.control--wide {
         var(--stage);
 }
 
+/* The running game no longer matches the parameters: the same orange as the
+   Restart button, around the whole preview so it reads at any zoom. Inset, so
+   the layout does not shift when it comes and goes. */
+.stage__viewport.is-stale {
+    box-shadow: inset 0 0 0 2px var(--warn);
+}
+
 .stage__empty {
     color: var(--muted);
     margin: auto;
@@ -552,7 +568,6 @@ select.control--wide {
     border-color: transparent;
     box-shadow: 0 0 0 1px var(--line);
 }
-
 .frame__screen {
     position: relative;
     overflow: hidden;
@@ -1437,7 +1452,6 @@ select.control--wide {
 
 /* Long-form string parameters: a level description, a block of copy. */
 .control--area {
-    min-height: 180px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: var(--text-sm);
     line-height: 1.5;

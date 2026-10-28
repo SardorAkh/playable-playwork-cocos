@@ -240,6 +240,8 @@ export function DevicePreview(props: Props) {
 
                 <select
                     className="control"
+                    title={t('stage.zoom')}
+                    aria-label={t('stage.zoom')}
                     value={settings.zoom === 'fit' ? 'fit' : String(settings.zoom)}
                     onChange={(event) =>
                         onChange({ zoom: event.target.value === 'fit' ? 'fit' : Number(event.target.value) })
@@ -263,7 +265,7 @@ export function DevicePreview(props: Props) {
                 </button>
             </div>
 
-            <div className="stage__viewport" ref={viewportRef}>
+            <div className={stale ? 'stage__viewport is-stale' : 'stage__viewport'} ref={viewportRef}>
                 {html ? (
                     <div className="frame-slot" style={{ width: outerWidth * scale, height: outerHeight * scale }}>
                     <div

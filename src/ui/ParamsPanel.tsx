@@ -29,10 +29,22 @@ interface Props {
  */
 const LONG_FORM_CHARS = 60;
 
+/** A store link or any other URL: one token, however long, and read as one line. */
+const URL_LIKE = /^[a-z][a-z\d+.-]*:\/\/\S+$/i;
+
+function isUrl(param: TuningParam): boolean {
+    return param.type === 'string' && typeof param.default === 'string' && URL_LIKE.test(param.default.trim());
+}
+
 function isLongForm(param: TuningParam): boolean {
-    if (param.type !== 'string') return false;
+    if (param.type !== 'string' || isUrl(param)) return false;
     const sample = typeof param.default === 'string' ? param.default : '';
     return sample.includes('\n') || sample.length > LONG_FORM_CHARS;
+}
+
+/** As tall as the text in it, within reason: ten empty rows under a two-line value was most of a screen. */
+function areaRows(text: string): number {
+    return Math.min(10, Math.max(3, text.split('\n').length + 1));
 }
 
 const PRESETS_KEY = 'playable-tuner:presets';
@@ -132,7 +144,7 @@ function Field({
                 return (
                     <textarea
                         className="control control--wide control--area"
-                        rows={10}
+                        rows={areaRows(String(value ?? ''))}
                         spellCheck={false}
                         value={String(value ?? '')}
                         onChange={(event) => onChange(event.target.value)}
@@ -142,6 +154,8 @@ function Field({
             return (
                 <input
                     className="control control--wide"
+                    inputMode={isUrl(param) ? 'url' : undefined}
+                    spellCheck={isUrl(param) ? false : undefined}
                     value={String(value ?? '')}
                     onChange={(event) => onChange(event.target.value)}
                 />
