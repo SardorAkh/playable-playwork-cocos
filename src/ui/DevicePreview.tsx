@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
-import { PREVIEW_HOST_CHANNEL, PREVIEW_HOST_URL } from '../core/previewShim';
+import { PREVIEW_CHANNEL, PREVIEW_HOST_CHANNEL, PREVIEW_HOST_URL } from '../core/previewShim';
 import { DEVICES, RESPONSIVE_PRESETS, deviceSize } from './devices';
 import type { DevicePreset, Orientation } from './devices';
 
@@ -14,6 +14,8 @@ export interface PreviewSettings {
     autoReload: boolean;
     /** Draw the cutout and home indicator over the screen at all. */
     showCutout: boolean;
+    /** Silence the playable — preview only, the exported file keeps its sound. */
+    muted: boolean;
 }
 
 export const DEFAULT_PREVIEW: PreviewSettings = {
@@ -25,6 +27,7 @@ export const DEFAULT_PREVIEW: PreviewSettings = {
     strictSandbox: false,
     autoReload: false,
     showCutout: true,
+    muted: false,
 };
 
 interface Props {
@@ -132,16 +135,38 @@ export function DevicePreview(props: Props) {
         return () => window.removeEventListener('message', onMessage);
     }, [html, iframeRef]);
 
+    // The shim inside every fresh document says 'ready' before the game boots; answer with the
+    // current mute state so a restart or a new build comes up as quiet as the last one.
+    const mutedRef = useRef(settings.muted);
+    mutedRef.current = settings.muted;
+    useEffect(() => {
+        const onMessage = (event: MessageEvent) => {
+            if (event.source !== iframeRef.current?.contentWindow) return;
+            const data = event.data as { channel?: string; type?: string };
+            if (!data || data.channel !== PREVIEW_CHANNEL || data.type !== 'ready') return;
+            (event.source as Window).postMessage({ channel: PREVIEW_CHANNEL, type: 'mute', muted: mutedRef.current }, '*');
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [iframeRef]);
+
+    useEffect(() => {
+        iframeRef.current?.contentWindow?.postMessage({ channel: PREVIEW_CHANNEL, type: 'mute', muted: settings.muted }, '*');
+    }, [iframeRef, settings.muted]);
+
+    const toggleMute = useCallback(() => onChange({ muted: !mutedRef.current }), [onChange]);
+
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             const target = event.target as HTMLElement | null;
             if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
             if (event.key === 'r' || event.key === 'к') onReload();
             if (event.key === 'o' || event.key === 'щ') rotate();
+            if (event.key === 'm' || event.key === 'ь') toggleMute();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [onReload, rotate]);
+    }, [onReload, rotate, toggleMute]);
 
     const sandbox = settings.strictSandbox
         ? 'allow-scripts'
@@ -236,6 +261,16 @@ export function DevicePreview(props: Props) {
                             ? t('stage.portrait')
                             : t('stage.landscape')
                         : t('stage.rotate')}
+                </button>
+
+                <button
+                    className={settings.muted ? 'control control--icon is-on' : 'control control--icon'}
+                    onClick={toggleMute}
+                    title={settings.muted ? t('stage.unmuteHint') : t('stage.muteHint')}
+                    aria-label={settings.muted ? t('stage.unmuteHint') : t('stage.muteHint')}
+                    aria-pressed={settings.muted}
+                >
+                    <SpeakerIcon muted={settings.muted} />
                 </button>
 
                 <select
@@ -348,5 +383,19 @@ export function DevicePreview(props: Props) {
                 </label>
             </div>
         </section>
+    );
+}
+
+function SpeakerIcon({ muted }: { muted: boolean }) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2.5 6h2.5l3.5-3v10l-3.5-3h-2.5z" fill="currentColor" />
+            {muted ? (
+                <path d="M11 6l3.5 4m0-4l-3.5 4" />
+            ) : (
+                <path d="M11 5.5a3.5 3.5 0 0 1 0 5m1.8-7a6 6 0 0 1 0 9" />
+            )}
+        </svg>
     );
 }

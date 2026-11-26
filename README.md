@@ -138,7 +138,7 @@ The Export tab is a matrix of **networks × orientations**:
 - **Playable name** — the common file-name stem, pre-filled from the first build with network and
   orientation tails stripped.
 - **Networks** — a checkbox per network, each with an editable **folder**, an editable **suffix**
-  (`_AL`, `_FB`, `_MINTEGRAL` …) and a **source** picker saying which loaded file feeds it. A bundle
+  (the network's full name in lower case: `_applovin`, `_meta`, `_mintegral` …) and a **source** picker saying which loaded file feeds it. A bundle
   can feed any of them; a network artifact only fits its own format, and pointing one at a different
   network is allowed but flagged as "its SDK will not match this folder".
 - **Orientations** — Portrait / Landscape / Responsive checkboxes, each with an editable suffix.

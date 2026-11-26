@@ -230,6 +230,85 @@ const SHIM_SOURCE = `
         send('checked-value', reply);
     });
 
+    // Tuner's mute button. Preview-only, like the rest of this shim: the
+    // exported file is never touched. Web Audio is muted by handing the game
+    // a gain node in place of the real destination -- suspending the context
+    // would not hold, since engines resume it on the next touch. Media
+    // elements are muted directly and get their own muted flag back after.
+    var muted = false;
+    var outputs = [];
+    var media = [];
+
+    function applyMedia(element) {
+        if (media.indexOf(element) === -1) media.push(element);
+        try {
+            if (muted && !element.__tunerMute) {
+                element.__tunerMute = { was: element.muted };
+                element.muted = true;
+            } else if (!muted && element.__tunerMute) {
+                element.muted = element.__tunerMute.was;
+                element.__tunerMute = null;
+            }
+        } catch (ignored) {}
+    }
+
+    try {
+        var mediaPlay = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = function () {
+            applyMedia(this);
+            return mediaPlay.apply(this, arguments);
+        };
+    } catch (ignored) {}
+
+    [window.BaseAudioContext, window.AudioContext, window.webkitAudioContext].forEach(function (Context) {
+        if (!Context || !Context.prototype) return;
+        var described = Object.getOwnPropertyDescriptor(Context.prototype, 'destination');
+        if (!described || !described.get) return;
+        var realDestination = described.get;
+        try {
+            Object.defineProperty(Context.prototype, 'destination', {
+                configurable: true,
+                enumerable: described.enumerable,
+                get: function () {
+                    var real = realDestination.call(this);
+                    // Offline rendering produces a buffer, not sound -- leave it alone.
+                    if (window.OfflineAudioContext && this instanceof window.OfflineAudioContext) return real;
+                    if (this.__tunerOutput) return this.__tunerOutput;
+                    try {
+                        var gain = this.createGain();
+                        gain.connect(real);
+                        gain.gain.value = muted ? 0 : 1;
+                        Object.defineProperty(gain, 'maxChannelCount', {
+                            get: function () { return real.maxChannelCount; }
+                        });
+                        Object.defineProperty(this, '__tunerOutput', { value: gain });
+                        outputs.push(gain);
+                        return gain;
+                    } catch (ignored) {
+                        return real;
+                    }
+                }
+            });
+        } catch (ignored) {}
+    });
+
+    function setMuted(next) {
+        muted = !!next;
+        outputs.forEach(function (gain) {
+            try { gain.gain.value = muted ? 0 : 1; } catch (ignored) {}
+        });
+        try {
+            Array.prototype.forEach.call(document.querySelectorAll('audio, video'), applyMedia);
+        } catch (ignored) {}
+        media.forEach(applyMedia);
+    }
+
+    window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || data.channel !== CHANNEL || data.type !== 'mute') return;
+        setMuted(data.muted);
+    });
+
     window.addEventListener('load', function () { send('loaded', { at: Date.now() }); });
     send('ready', { at: Date.now() });
 })();

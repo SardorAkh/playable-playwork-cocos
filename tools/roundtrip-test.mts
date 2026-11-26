@@ -339,6 +339,8 @@ const zipBytes = await zipSource.generateAsync({ type: 'uint8array' });
 const zipBuild = await loadBuild(new File([zipBytes], 'MyGame_v1_MINTEGRAL.zip'));
 
 check('base name drops network and orientation tails', suggestBaseName('MyGame_v1_AL_portrait.html') === 'MyGame_v1', suggestBaseName('MyGame_v1_AL_portrait.html'));
+check('base name drops full-name network tails too', suggestBaseName('MyGame_v1_ironsource_landscape.html') === 'MyGame_v1', suggestBaseName('MyGame_v1_ironsource_landscape.html'));
+check('default suffixes are full lower-case network names', NETWORKS.every((network) => network.suffix === `_${network.id}`), NETWORKS.map((network) => network.suffix));
 
 const settings: ExportSettings = {
     baseName: 'MyGame_v1',
@@ -364,7 +366,7 @@ check('matrix is networks x orientations', plan.length === 4, plan.map((item) =>
 check(
     'paths carry folder, name and both suffixes',
     plan.map((item) => item.path).join(' ') ===
-        'applovin/MyGame_v1_AL_portrait.html applovin/MyGame_v1_AL_landscape.html mintegral/MyGame_v1_MINTEGRAL_portrait.zip mintegral/MyGame_v1_MINTEGRAL_landscape.zip',
+        'applovin/MyGame_v1_applovin_portrait.html applovin/MyGame_v1_applovin_landscape.html mintegral/MyGame_v1_mintegral_portrait.zip mintegral/MyGame_v1_mintegral_landscape.zip',
     plan.map((item) => item.path),
 );
 check('nothing is flagged as mismatched here', plan.every((item) => !item.mismatched));
@@ -373,11 +375,11 @@ const packed = await packExport(plan, [{ id: 'html', build }, { id: 'zip', build
 const archive = await JSZip.loadAsync(await packed.blob.arrayBuffer());
 check('archive holds every planned file', plan.every((item) => Boolean(archive.file(item.path))));
 
-const htmlInside = await archive.file('applovin/MyGame_v1_AL_portrait.html')!.async('string');
+const htmlInside = await archive.file('applovin/MyGame_v1_applovin_portrait.html')!.async('string');
 const exported = await loadBuild(new File([htmlInside], 'exported.html'));
 check('exported html carries the edited values', exported.values.ctaText === values.ctaText, exported.values.ctaText);
 
-const landscapeZip = await JSZip.loadAsync(await archive.file('mintegral/MyGame_v1_MINTEGRAL_landscape.zip')!.async('uint8array'));
+const landscapeZip = await JSZip.loadAsync(await archive.file('mintegral/MyGame_v1_mintegral_landscape.zip')!.async('uint8array'));
 const landscapeConfig = JSON.parse(await landscapeZip.file('config.json')!.async('string'));
 check('mintegral config.json follows the orientation', landscapeConfig.orientation === 'landscape', landscapeConfig);
 check('other config fields survive', Array.isArray(landscapeConfig.playable_languages));
@@ -387,7 +389,7 @@ const noOrientation = planExport(
     NETWORKS,
     infos,
 );
-check('without orientations each network yields one file', noOrientation.length === 2 && noOrientation[0].path === 'applovin/MyGame_v1_AL.html', noOrientation.map((i) => i.path));
+check('without orientations each network yields one file', noOrientation.length === 2 && noOrientation[0].path === 'applovin/MyGame_v1_applovin.html', noOrientation.map((i) => i.path));
 
 console.log('rewrap (bundle → any network)');
 const bundleFile = readFileSync(resolve(process.cwd(), 'public/fixtures/demo-tuner.html'));

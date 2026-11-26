@@ -59,9 +59,9 @@ export interface ExportItem {
     rewrapped: boolean;
 }
 
-/** Trailing network/orientation markers a previous build left in the file name. */
+/** Trailing network/orientation markers a previous build left in the file name — old short tails and full names alike. */
 const KNOWN_TAIL =
-    /([-_](AL|UNITY|IS|FB|LIFTOFF|MINTEGRAL|GOOGLE|TIKTOK|TUNER|portrait|landscape|responsive|tuned))+$/i;
+    /([-_](AL|APPLOVIN|UNITY|UNITYADS|IS|IRONSOURCE|FB|META|FACEBOOK|LIFTOFF|VUNGLE|MINTEGRAL|GOOGLE|TIKTOK|PANGLE|TUNER|portrait|landscape|responsive|tuned))+$/i;
 
 export function suggestBaseName(fileName: string): string {
     const dot = fileName.lastIndexOf('.');

@@ -12,7 +12,10 @@ export interface NetworkProfile {
     allowsExternalRequests: boolean;
     /** URLs that are legitimately present in builds for this network. */
     allowedUrls: RegExp[];
-    /** Default file-name suffix and output folder — both editable in the export panel. */
+    /**
+     * Default file-name suffix and output folder — both editable in the export panel. The suffix
+     * is the network's full name in lower case (`_applovin`, `_mintegral`), never an abbreviation.
+     */
     suffix: string;
     folder: string;
     /** Signature table is data, not code — this is when it was last checked against the docs. */
@@ -33,7 +36,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: true,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_AL',
+        suffix: '_applovin',
         folder: 'applovin',
         signaturesCheckedAt: CHECKED,
     },
@@ -47,7 +50,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: true,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_UNITY',
+        suffix: '_unity',
         folder: 'unity',
         signaturesCheckedAt: CHECKED,
     },
@@ -61,7 +64,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: true,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_IS',
+        suffix: '_ironsource',
         folder: 'ironsource',
         signaturesCheckedAt: CHECKED,
     },
@@ -75,7 +78,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: false,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_FB',
+        suffix: '_meta',
         folder: 'meta',
         signaturesCheckedAt: CHECKED,
     },
@@ -89,7 +92,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: true,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_LIFTOFF',
+        suffix: '_liftoff',
         folder: 'liftoff',
         signaturesCheckedAt: CHECKED,
     },
@@ -107,7 +110,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: false,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_MINTEGRAL',
+        suffix: '_mintegral',
         folder: 'mintegral',
         signaturesCheckedAt: '2026-10-13',
     },
@@ -121,7 +124,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: false,
         allowsExternalRequests: false,
         allowedUrls: [/tpc\.googlesyndication\.com/i],
-        suffix: '_GOOGLE',
+        suffix: '_google',
         folder: 'google',
         signaturesCheckedAt: CHECKED,
     },
@@ -135,7 +138,7 @@ export const NETWORKS: NetworkProfile[] = [
         needsMraidTag: true,
         allowsExternalRequests: false,
         allowedUrls: [],
-        suffix: '_TIKTOK',
+        suffix: '_tiktok',
         folder: 'tiktok',
         signaturesCheckedAt: CHECKED,
     },
@@ -191,10 +194,10 @@ export const CTA_CALLS = /playable\s*\.\s*cta\s*\(|openStore\s*\(|openAppStore\s
 
 /** Filename hints the builder leaves behind, so the target network is preselected on upload. */
 const FILE_HINTS: { pattern: RegExp; id: string }[] = [
-    { pattern: /_AL\b|applovin/i, id: 'applovin' },
-    { pattern: /_UNITY\b|unityads/i, id: 'unity' },
-    { pattern: /_IS\b|ironsource/i, id: 'ironsource' },
-    { pattern: /_FB\b|meta|facebook/i, id: 'meta' },
+    { pattern: /_AL(?![a-z0-9])|applovin/i, id: 'applovin' },
+    { pattern: /_UNITY(?![a-z0-9])|unityads/i, id: 'unity' },
+    { pattern: /_IS(?![a-z0-9])|ironsource/i, id: 'ironsource' },
+    { pattern: /_FB(?![a-z0-9])|meta|facebook/i, id: 'meta' },
     { pattern: /liftoff|vungle/i, id: 'liftoff' },
     { pattern: /mintegral/i, id: 'mintegral' },
     { pattern: /google/i, id: 'google' },

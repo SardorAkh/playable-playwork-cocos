@@ -325,6 +325,19 @@ select.control:focus {
     font-size: var(--text-xs);
 }
 
+.control--icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 7px;
+}
+
+/* Muted stays visibly on: a silent playable should never look like a broken one. */
+.stage__bar .control--icon.is-on {
+    background: var(--chip);
+    color: var(--warn);
+}
+
 .control--num {
     width: 76px;
     text-align: right;
